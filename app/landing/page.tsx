@@ -1,9 +1,46 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
+interface PRD {
+  id: string;
+  title: string;
+  content: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export default function LandingPage() {
   const router = useRouter();
+  const [recentPRDs, setRecentPRDs] = useState<PRD[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Clear localStorage on mount (migration to database)
+  useEffect(() => {
+    // Clear old localStorage data
+    localStorage.removeItem('redspec_prds');
+    localStorage.removeItem('redspec_shares');
+  }, []);
+
+  // Load recent PRDs from database
+  useEffect(() => {
+    const loadRecentPRDs = async () => {
+      try {
+        const response = await fetch('/api/prds?limit=5');
+        const data = await response.json();
+        if (data.success) {
+          setRecentPRDs(data.data || []);
+        }
+      } catch (error) {
+        console.error('Error loading recent PRDs:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadRecentPRDs();
+  }, []);
 
   return (
     <div className="flex h-screen bg-[#1A1A1A] text-white">
@@ -27,40 +64,70 @@ export default function LandingPage() {
 
         {/* Navigation Links */}
         <div className="px-4 space-y-1">
-          <a href="#" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors">
+          <button
+            onClick={() => router.push('/chat')}
+            className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors text-left"
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             <span className="text-sm">Chats</span>
-            <span className="ml-auto text-xs bg-zinc-700 px-2 py-0.5 rounded-full">1</span>
-          </a>
- 
-          <a href="#" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors">
+          </button>
+          <button
+            onClick={() => router.push('/documents')}
+            className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors text-left"
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span className="text-sm">Projects</span>
-          </a>
-          <a href="#" className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors">
+            <span className="text-sm">Documents</span>
+            {recentPRDs.length > 0 && (
+              <span className="ml-auto text-xs bg-zinc-700 px-2 py-0.5 rounded-full">{recentPRDs.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors text-left"
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            <span className="text-sm">Templates</span>
-          </a>
+            <span className="text-sm">Dashboard</span>
+          </button>
         </div>
 
 
         {/* Recent Activity */}
         <div className="p-4 border-t border-zinc-800">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-zinc-400">Recent</span>
-            <span className="text-xs text-zinc-500">All chats</span>
+            <span className="text-xs font-medium text-zinc-400">Recent PRDs</span>
+            {recentPRDs.length > 0 && (
+              <button
+                onClick={() => router.push('/documents')}
+                className="text-xs text-zinc-500 hover:text-white"
+              >
+                View all
+              </button>
+            )}
           </div>
-          <div className="text-xs text-zinc-500 mb-3">Press ⌘K to search</div>
-          <div className="text-xs font-medium text-zinc-400 mb-2">Today</div>
-          <div className="text-sm text-zinc-300 hover:text-white cursor-pointer">
-            Enriching User Rating PRD D...
-          </div>
+          {isLoading ? (
+            <div className="text-xs text-zinc-500">Loading...</div>
+          ) : recentPRDs.length === 0 ? (
+            <div className="text-xs text-zinc-500">No recent PRDs</div>
+          ) : (
+            <div className="space-y-2">
+              {recentPRDs.map((prd) => (
+                <div
+                  key={prd.id}
+                  onClick={() => router.push(`/chat?prd=${prd.id}`)}
+                  className="text-sm text-zinc-300 hover:text-white cursor-pointer truncate p-2 rounded hover:bg-zinc-800 transition-colors"
+                  title={prd.title}
+                >
+                  {prd.title}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* User Profile */}

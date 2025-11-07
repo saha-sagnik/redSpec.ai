@@ -124,11 +124,25 @@ import json
 import sys
 import os
 
+# Set Google API Key from environment BEFORE importing anything
+google_api_key = os.environ.get('GOOGLE_API_KEY')
+if not google_api_key:
+    print(json.dumps({"output": "Error: GOOGLE_API_KEY not set", "success": False, "error": "GOOGLE_API_KEY environment variable is missing"}), file=sys.stdout)
+    sys.exit(1)
+
+# Set the API key in environment before importing Google libraries
+os.environ['GOOGLE_API_KEY'] = google_api_key
+
 # Add project root to path
 project_root = "${projectRoot.replace(/\\/g, '/')}"
 sys.path.insert(0, project_root)
 
 try:
+    # Import after setting environment - Google ADK reads GOOGLE_API_KEY from environment automatically
+    # Make sure it's set before importing
+    if not os.environ.get('GOOGLE_API_KEY'):
+        raise ValueError("GOOGLE_API_KEY not found in environment")
+    
     from agents.conversational_prd_agent import conversational_prd_agent
     from google.adk.runners import InMemoryRunner
     
@@ -139,6 +153,8 @@ try:
             
             # Redirect stdout to stderr for debug messages
             print("Starting agent run...", file=sys.stderr)
+            print(f"Prompt length: {len(prompt)}", file=sys.stderr)
+            
             events = await runner.run_debug(prompt)
             
             output = ""
@@ -161,7 +177,11 @@ try:
             
         except Exception as e:
             import traceback
-            error_result = {"output": f"Error: {str(e)}", "success": False, "error": str(e), "traceback": traceback.format_exc()}
+            error_trace = traceback.format_exc()
+            # Print full error to stderr for debugging
+            print(f"Full error traceback:", file=sys.stderr)
+            print(error_trace, file=sys.stderr)
+            error_result = {"output": f"Error: {str(e)}", "success": False, "error": str(e), "traceback": error_trace}
             print(json.dumps(error_result), file=sys.stdout)
             sys.stdout.flush()
             sys.exit(1)
@@ -180,7 +200,11 @@ except Exception as e:
 
         const pythonProcess = spawn(pythonCmd, [tempScriptPath], {
           cwd: projectRoot,
-          env: { ...process.env, PYTHONPATH: projectRoot },
+          env: { 
+            ...process.env, 
+            PYTHONPATH: projectRoot,
+            GOOGLE_API_KEY: process.env.GOOGLE_API_KEY || '',
+          },
         });
 
         let responseData = '';
@@ -194,26 +218,30 @@ except Exception as e:
 
         pythonProcess.stderr.on('data', (data: Buffer) => {
           const text = data.toString();
-          console.log('[CHAT API] Python stderr:', text.substring(0, 500));
+          console.log('[CHAT API] Python stderr:', text);
           errorData += text;
         });
 
-        // Add timeout (30 seconds)
+        // Add timeout (120 seconds - Gemini can take time for complex responses)
         const timeout = setTimeout(() => {
           console.error('[CHAT API] Python process timeout');
           pythonProcess.kill();
-          fs.unlinkSync(tempScriptPath);
+          try {
+            fs.unlinkSync(tempScriptPath);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
           resolve(
             NextResponse.json(
               {
                 success: false,
                 error: 'Request timeout - agent took too long to respond',
-                details: 'The agent process exceeded 30 seconds',
+                details: 'The agent process exceeded 120 seconds. This might be due to a complex query or API delays. Please try again with a simpler message.',
               },
               { status: 500 }
             )
           );
-        }, 30000);
+        }, 120000);
 
         pythonProcess.on('close', (code: number) => {
           clearTimeout(timeout);
@@ -230,7 +258,8 @@ except Exception as e:
 
           if (code !== 0) {
             console.error('[CHAT API] Python process error. Code:', code);
-            console.error('[CHAT API] Error output:', errorData);
+            console.error('[CHAT API] Full error output:', errorData);
+            console.error('[CHAT API] Response data:', responseData);
             
             // Check if it's a Python version error
             if (errorData.includes('Python 3.10') || errorData.includes('MCP requires')) {
@@ -246,13 +275,17 @@ except Exception as e:
                 )
               );
             } else {
+              // Show full error details
+              const fullErrorDetails = errorData || responseData || 'Python process exited with non-zero code';
               resolve(
                 NextResponse.json(
                   {
                     success: false,
                     error: 'Failed to process with conversational agent',
-                    details: errorData || 'Python process exited with non-zero code',
+                    details: fullErrorDetails.length > 2000 ? fullErrorDetails.substring(0, 2000) + '...' : fullErrorDetails,
                     code: code,
+                    rawError: errorData,
+                    rawResponse: responseData,
                   },
                   { status: 500 }
                 )
@@ -273,13 +306,41 @@ except Exception as e:
           let jsonEnd = trimmedResponse.lastIndexOf('}') + 1;
           
           if (jsonStart === -1 || jsonEnd === 0) {
-            throw new Error('No JSON object found in response');
+            // If no JSON found, check if there's partial output in stderr
+            const partialOutput = errorData.includes('output') ? errorData : trimmedResponse;
+            console.log('[CHAT API] No JSON found, using raw output');
+            const response: ChatMessage = {
+              role: 'assistant',
+              content: partialOutput || 'I received your message but had trouble generating a response.',
+              timestamp: new Date().toISOString(),
+            };
+            resolve(
+              NextResponse.json({
+                success: true,
+                message: response,
+                conversationId: Date.now().toString(),
+              })
+            );
+            return;
           }
           
           const jsonString = trimmedResponse.substring(jsonStart, jsonEnd);
           console.log('[CHAT API] Extracted JSON:', jsonString.substring(0, 200));
           
-          const result = JSON.parse(jsonString);
+          let result;
+          try {
+            result = JSON.parse(jsonString);
+          } catch (parseErr) {
+            // If JSON parsing fails, try to extract just the output field
+            const outputMatch = trimmedResponse.match(/"output"\s*:\s*"([^"]*)"/);
+            if (outputMatch) {
+              result = { output: outputMatch[1], success: true };
+            } else {
+              // Use the raw response as output
+              result = { output: trimmedResponse, success: true };
+            }
+          }
+          
           console.log('[CHAT API] Parsed result, success:', result.success);
           
           const response: ChatMessage = {
