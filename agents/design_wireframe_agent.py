@@ -4,6 +4,631 @@ Generates wireframes and design specifications aligned with Rubicon Design Syste
 """
 
 from google.adk.agents.llm_agent import Agent
+from typing import List, Dict, Any, Optional
+import requests
+import json
+
+# Figma MCP Configuration
+FIGMA_MCP_URL = "http://127.0.0.1:3845/mcp"
+
+def search_figma_components(query: str, component_type: str = "all") -> Dict[str, Any]:
+    """
+    Search for existing Figma components in redBus design system via MCP.
+
+    Args:
+        query: Search term (e.g., "button", "card", "modal")
+        component_type: Type of component ("button", "card", "input", "all")
+
+    Returns:
+        Dict containing matching components with their properties
+    """
+    try:
+        # Try to connect to Figma MCP
+        payload = {
+            "method": "search_components",
+            "params": {
+                "query": query,
+                "component_type": component_type
+            }
+        }
+
+        response = requests.post(FIGMA_MCP_URL, json=payload, timeout=10)
+        response.raise_for_status()
+
+        result = response.json()
+        if result.get("success"):
+            return result.get("data", {})
+        else:
+            # Fallback to mock data if MCP fails
+            return _get_mock_components(query, component_type)
+
+    except (requests.RequestException, json.JSONDecodeError) as e:
+        # Fallback to mock data based on Rubicon Design System knowledge
+        print(f"Figma MCP not available ({e}), using mock data")
+        return _get_mock_components(query, component_type)
+
+def _get_mock_components(query: str, component_type: str = "all") -> Dict[str, Any]:
+    """
+    Fallback mock data based on Rubicon Design System knowledge.
+    """
+    components = {
+        "buttons": [
+            {"name": "Primary Button", "figma_id": "btn_primary", "rds_name": "ButtonView", "category": "Crystal"},
+            {"name": "Secondary Button", "figma_id": "btn_secondary", "rds_name": "ButtonView", "category": "Crystal"},
+            {"name": "Ghost Button", "figma_id": "btn_ghost", "rds_name": "ButtonView", "category": "Crystal"}
+        ],
+        "cards": [
+            {"name": "Info Card", "figma_id": "card_info", "rds_name": "InfoCardView", "category": "Crystal"},
+            {"name": "Activity Card", "figma_id": "card_activity", "rds_name": "ActivityCardView", "category": "Crystal"},
+            {"name": "Review Card", "figma_id": "card_review", "rds_name": "ReviewCardView", "category": "Crystal"}
+        ],
+        "inputs": [
+            {"name": "Text Input", "figma_id": "input_text", "rds_name": "TextInputView", "category": "Crystal"},
+            {"name": "Picker Input", "figma_id": "input_picker", "rds_name": "PickerView", "category": "Crystal"}
+        ]
+    }
+
+    if component_type == "all":
+        return {"components": components, "query": query, "source": "mock"}
+    elif component_type in components:
+        return {"components": {component_type: components[component_type]}, "query": query, "source": "mock"}
+    else:
+        # Search across all component types for the query
+        matching_components = {}
+        for comp_type, comp_list in components.items():
+            matches = [comp for comp in comp_list if query.lower() in comp["name"].lower()]
+            if matches:
+                matching_components[comp_type] = matches
+        return {"components": matching_components, "query": query, "component_type": component_type, "source": "mock"}
+
+def get_figma_screen_patterns(feature_type: str) -> Dict[str, Any]:
+    """
+    Get common screen patterns from existing redBus Figma designs via MCP.
+
+    Args:
+        feature_type: Type of feature ("booking", "profile", "payment", "tracking", etc.)
+
+    Returns:
+        Dict containing common patterns and layouts
+    """
+    try:
+        # Try to connect to Figma MCP
+        payload = {
+            "method": "get_screen_patterns",
+            "params": {
+                "feature_type": feature_type
+            }
+        }
+
+        response = requests.post(FIGMA_MCP_URL, json=payload, timeout=10)
+        response.raise_for_status()
+
+        result = response.json()
+        if result.get("success"):
+            return result.get("data", {})
+        else:
+            # Fallback to mock data if MCP fails
+            return _get_mock_screen_patterns(feature_type)
+
+    except (requests.RequestException, json.JSONDecodeError) as e:
+        # Fallback to mock data
+        print(f"Figma MCP not available ({e}), using mock data")
+        return _get_mock_screen_patterns(feature_type)
+
+def _get_mock_screen_patterns(feature_type: str) -> Dict[str, Any]:
+    """
+    Fallback mock data for screen patterns.
+    """
+    patterns = {
+        "booking": {
+            "common_layouts": ["List → Details → Confirmation", "Search → Filter → Select → Pay"],
+            "key_screens": ["Search Results", "Bus Details", "Seat Selection", "Passenger Info", "Payment"],
+            "navigation": "Bottom tab navigation with booking flow"
+        },
+        "profile": {
+            "common_layouts": ["Profile → Edit → Save", "Settings → Preferences → Update"],
+            "key_screens": ["Profile Overview", "Edit Profile", "Settings", "Preferences"],
+            "navigation": "Stack navigation with back button"
+        },
+        "payment": {
+            "common_layouts": ["Amount → Method → Confirm → Success"],
+            "key_screens": ["Payment Methods", "Add Card", "Payment Confirmation", "Success"],
+            "navigation": "Modal flow with close button"
+        },
+        "tracking": {
+            "common_layouts": ["Map View → Details → Actions"],
+            "key_screens": ["Live Tracking", "Trip Details", "Driver Info"],
+            "navigation": "Full screen with overlay controls"
+        }
+    }
+
+    return patterns.get(feature_type, {
+        "common_layouts": ["Standard redBus flow"],
+        "key_screens": ["Main Screen", "Details Screen"],
+        "navigation": "Standard navigation pattern",
+        "source": "mock"
+    })
+
+def analyze_existing_designs(feature_description: str) -> Dict[str, Any]:
+    """
+    Analyze existing redBus designs to find similar patterns for the new feature via MCP.
+
+    Args:
+        feature_description: Description of the feature to analyze
+
+    Returns:
+        Dict containing similar designs and reusable components
+    """
+    try:
+        # Try to connect to Figma MCP
+        payload = {
+            "method": "analyze_designs",
+            "params": {
+                "feature_description": feature_description
+            }
+        }
+
+        response = requests.post(FIGMA_MCP_URL, json=payload, timeout=10)
+        response.raise_for_status()
+
+        result = response.json()
+        if result.get("success"):
+            return result.get("data", {})
+        else:
+            # Fallback to mock analysis if MCP fails
+            return _analyze_mock_designs(feature_description)
+
+    except (requests.RequestException, json.JSONDecodeError) as e:
+        # Fallback to mock analysis
+        print(f"Figma MCP not available ({e}), using mock analysis")
+        return _analyze_mock_designs(feature_description)
+
+def _analyze_mock_designs(feature_description: str) -> Dict[str, Any]:
+    """
+    Fallback mock analysis based on feature description keywords.
+    """
+    # Extract keywords from feature description
+    keywords = feature_description.lower().split()
+
+    # Mock analysis based on keywords
+    analysis = {
+        "similar_features": [],
+        "reusable_components": [],
+        "design_patterns": [],
+        "color_schemes": ["Brand Primary", "Success", "Warning", "Error"],
+        "typography_patterns": ["Headline for titles", "Body for content", "Caption for metadata"],
+        "source": "mock"
+    }
+
+    # Analyze for booking-related features
+    if any(word in keywords for word in ["book", "ticket", "bus", "travel", "trip"]):
+        analysis["similar_features"].extend(["Bus Booking Flow", "Seat Selection", "Trip Details"])
+        analysis["reusable_components"].extend(["BusCardView", "SeatMapView", "BookingFlowStepper"])
+        analysis["design_patterns"].extend(["List-Detail pattern", "Stepper navigation", "Confirmation screens"])
+
+    # Analyze for payment-related features
+    if any(word in keywords for word in ["pay", "payment", "refund", "cancel", "money"]):
+        analysis["similar_features"].extend(["Payment Flow", "Refund Process", "Cancellation Policy"])
+        analysis["reusable_components"].extend(["PaymentMethodSelector", "RefundBreakdownCard", "PolicyBottomSheet"])
+        analysis["design_patterns"].extend(["Payment method selection", "Amount breakdown", "Confirmation dialogs"])
+
+    # Analyze for profile/account features
+    if any(word in keywords for word in ["profile", "account", "user", "login", "auth"]):
+        analysis["similar_features"].extend(["User Profile", "Login Flow", "Account Settings"])
+        analysis["reusable_components"].extend(["ProfileHeader", "SettingsList", "AuthForm"])
+        analysis["design_patterns"].extend(["Profile layouts", "Form patterns", "Settings screens"])
+
+    return analysis
+
+def generate_figma_make_prompt(screen_description: str, component_details: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate optimized prompts for Figma Make AI wireframe generator.
+
+    Args:
+        screen_description: Description of the screen to generate
+        component_details: Component specifications for the screen
+
+    Returns:
+        Dict containing Figma Make prompt, Mermaid diagram, and usage instructions
+    """
+    # Generate optimized Figma Make prompt
+    figma_make_prompt = _generate_optimized_figma_prompt(screen_description, component_details)
+
+    # Generate Mermaid diagram for visual reference
+    mermaid_diagram = _generate_mermaid_diagram(screen_description, component_details)
+
+    return {
+        "figma_make_prompt": figma_make_prompt,
+        "mermaid_diagram": mermaid_diagram,
+        "usage_instructions": _get_figma_make_instructions(),
+        "copy_paste_ready": True,
+        "source": "optimized"
+    }
+
+def _generate_mock_screenshot(screen_description: str, component_details: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate actionable wireframe data that can be imported into Figma.
+    """
+    # Generate Mermaid diagram based on screen description
+    mermaid_diagram = _generate_mermaid_diagram(screen_description, component_details)
+
+    # Generate Figma-compatible wireframe specification
+    figma_wireframe = _generate_figma_wireframe_spec(screen_description, component_details)
+
+    return {
+        "mermaid_diagram": mermaid_diagram,
+        "figma_wireframe_spec": figma_wireframe,
+        "figma_import_instructions": _get_figma_import_instructions(),
+        "design_tokens": _generate_design_tokens(component_details),
+        "source": "generated",
+        "actionable": True
+    }
+
+def _generate_mermaid_diagram(screen_description: str, component_details: Dict[str, Any]) -> str:
+    """
+    Generate Mermaid diagram based on screen description and components.
+    """
+    screen_name = component_details.get('screen_name', 'Screen')
+    components = component_details.get('components', [])
+
+    # Basic flowchart structure
+    diagram = f"""graph TD
+    A[{screen_name}] --> B[Header/Navigation]
+    B --> C[Main Content]
+    C --> D[Actions/CTA]
+
+    style A fill:#f5f5f5,stroke:#333,stroke-width:3px
+    style B fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style C fill:#ffffff,stroke:#e0e0e0,stroke-width:1px
+    style D fill:#1976d2,stroke:#0d47a1,stroke-width:2px"""
+
+    # Add component-specific styling
+    if 'card' in screen_description.lower():
+        diagram += "\n    style C fill:#f8f9fa,stroke:#dee2e6,stroke-width:1px"
+    elif 'modal' in screen_description.lower() or 'bottom' in screen_description.lower():
+        diagram += "\n    style A fill:#ffffff,stroke:#6c757d,stroke-width:2px"
+    elif 'list' in screen_description.lower():
+        diagram += "\n    style C fill:#f8f9fa,stroke:#6c757d,stroke-width:1px"
+
+    return diagram
+
+def _generate_figma_wireframe_spec(screen_description: str, component_details: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate a Figma-compatible wireframe specification that can be imported.
+    """
+    screen_name = component_details.get('screen_name', 'Screen')
+    components = component_details.get('components', [])
+
+    # Create a Figma-like specification
+    wireframe_spec = {
+        "name": screen_name,
+        "description": screen_description,
+        "frame": {
+            "width": 375,  # iPhone width
+            "height": 812, # iPhone height
+            "backgroundColor": {"r": 1, "g": 1, "b": 1, "a": 1}
+        },
+        "components": [],
+        "layout": {
+            "type": "vertical",
+            "spacing": 16,
+            "padding": 16
+        }
+    }
+
+    # Add components based on screen type
+    if 'header' in screen_description.lower() or 'nav' in screen_description.lower():
+        wireframe_spec["components"].append({
+            "type": "header",
+            "name": "Header",
+            "x": 0,
+            "y": 0,
+            "width": 375,
+            "height": 56,
+            "backgroundColor": {"r": 0.96, "g": 0.96, "b": 0.98, "a": 1},
+            "borderRadius": 0,
+            "text": "Header Title",
+            "textColor": {"r": 0.2, "g": 0.2, "b": 0.2, "a": 1}
+        })
+
+    if 'card' in screen_description.lower():
+        wireframe_spec["components"].append({
+            "type": "card",
+            "name": "Content Card",
+            "x": 16,
+            "y": 72,
+            "width": 343,
+            "height": 120,
+            "backgroundColor": {"r": 1, "g": 1, "b": 1, "a": 1},
+            "borderRadius": 12,
+            "shadow": {
+                "x": 0,
+                "y": 2,
+                "blur": 8,
+                "color": {"r": 0, "g": 0, "b": 0, "a": 0.1}
+            }
+        })
+
+    if 'button' in screen_description.lower() or 'cta' in screen_description.lower():
+        wireframe_spec["components"].append({
+            "type": "button",
+            "name": "Primary Button",
+            "x": 16,
+            "y": 720,
+            "width": 343,
+            "height": 48,
+            "backgroundColor": {"r": 0.82, "g": 0.24, "b": 0.27, "a": 1},  # redBus red
+            "borderRadius": 8,
+            "text": "Action Button",
+            "textColor": {"r": 1, "g": 1, "b": 1, "a": 1}
+        })
+
+    return wireframe_spec
+
+def _get_figma_import_instructions() -> str:
+    """
+    Generate instructions for importing the wireframe into Figma.
+    """
+    return """
+## 🛠️ How to Import into Figma:
+
+### Option 1: Manual Recreation
+1. **Create New Frame**: Create a 375x812 frame (iPhone size)
+2. **Add Components**: Use the specifications above to create each component
+3. **Apply Design Tokens**: Use the design tokens section for colors and styles
+4. **Copy Layout**: Follow the component positions and sizes
+
+### Option 2: Use Figma Plugins
+1. **Install "Anima" or "TeleportHQ" plugin**
+2. **Copy the JSON spec** from `figma_wireframe_spec`
+3. **Paste into plugin** to auto-generate frames
+
+### Option 3: Template Approach
+1. **Create a master template** with common components
+2. **Duplicate and modify** for each screen
+3. **Use shared components** for consistency
+
+### Design Tokens to Set in Figma:
+- Import the design tokens JSON into your Figma team's design system
+- Create shared styles for colors, typography, and effects
+"""
+
+def _generate_design_tokens(component_details: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate design tokens that can be imported into Figma.
+    """
+    tokens = {
+        "colors": {
+            "brandPrimary": {"value": "#D63941", "type": "color"},
+            "brandSurface": {"value": "#FFDAD6", "type": "color"},
+            "textPrimary": {"value": "#1D1D1D", "type": "color"},
+            "textSecondary": {"value": "#6F6F6F", "type": "color"},
+            "background": {"value": "#F2F2F8", "type": "color"},
+            "surface": {"value": "#FFFFFF", "type": "color"}
+        },
+        "typography": {
+            "headlineLarge": {
+                "fontFamily": "Montserrat",
+                "fontWeight": 600,
+                "fontSize": 28,
+                "lineHeight": 34,
+                "type": "typography"
+            },
+            "headlineMedium": {
+                "fontFamily": "Montserrat",
+                "fontWeight": 500,
+                "fontSize": 22,
+                "lineHeight": 28,
+                "type": "typography"
+            },
+            "bodyLarge": {
+                "fontFamily": "Open Sans",
+                "fontWeight": 400,
+                "fontSize": 17,
+                "lineHeight": 24,
+                "type": "typography"
+            }
+        },
+        "spacing": {
+            "micro": {"value": 4, "type": "spacing"},
+            "small": {"value": 8, "type": "spacing"},
+            "medium": {"value": 16, "type": "spacing"},
+            "large": {"value": 24, "type": "spacing"},
+            "xlarge": {"value": 32, "type": "spacing"}
+        },
+        "borderRadius": {
+            "none": {"value": 0, "type": "borderRadius"},
+            "small": {"value": 4, "type": "borderRadius"},
+            "medium": {"value": 8, "type": "borderRadius"},
+            "large": {"value": 12, "type": "borderRadius"},
+            "xlarge": {"value": 16, "type": "borderRadius"}
+        }
+    }
+
+    return tokens
+
+def _generate_optimized_figma_prompt(screen_description: str, component_details: Dict[str, Any]) -> str:
+    """
+    Generate an optimized natural language prompt for Figma Make AI.
+    """
+    screen_name = component_details.get('screen_name', 'Screen')
+    components = component_details.get('components', [])
+
+    # Base prompt structure optimized for Figma Make with Rubicon compliance
+    prompt_parts = [
+        f"Create a redBus mobile app screen for {screen_description} using Rubicon Design System:"
+    ]
+
+    # Add Rubicon Design System specifications
+    prompt_parts.extend([
+        f"• Screen dimensions: 375px width (iPhone standard)",
+        f"• Background: #F2F2F8 (Rubicon neutral background)",
+        f"• Use Montserrat font for headings, Open Sans for body text",
+        f"• Follow 8px spacing grid system",
+        f"• All interactive elements minimum 44px height (Rubicon accessibility)"
+    ])
+
+    # Add component-specific Rubicon-compliant instructions
+    if any('header' in comp.lower() or 'nav' in comp.lower() for comp in components):
+        prompt_parts.extend([
+            f"• Header: 56px height, Montserrat Bold 22px title in #1D1D1D",
+            f"• Header background: #FFFFFF with subtle shadow",
+            f"• Navigation elements with proper touch targets"
+        ])
+
+    if any('card' in comp.lower() for comp in components):
+        prompt_parts.extend([
+            f"• Content cards: #FFFFFF background, 12px corner radius",
+            f"• Card padding: 16px (Rubicon medium spacing)",
+            f"• Subtle shadow: 2px Y offset, 8px blur, #000000 10% opacity",
+            f"• Card margins: 16px horizontal, 8px vertical"
+        ])
+
+    if any('button' in comp.lower() or 'cta' in comp.lower() for comp in components):
+        prompt_parts.extend([
+            f"• Primary buttons: 48px height, #D63941 background (Rubicon brand red)",
+            f"• Button text: Montserrat Medium 17px, #FFFFFF color",
+            f"• Button corner radius: 8px (Rubicon medium)",
+            f"• Secondary buttons: #FFFFFF background, #D63941 border and text"
+        ])
+
+    if any('status' in comp.lower() or 'badge' in comp.lower() for comp in components):
+        prompt_parts.extend([
+            f"• Status indicators: Use Rubicon semantic colors",
+            f"• Success: #008531 background for positive states",
+            f"• Warning: #BD5500 background for cautions",
+            f"• Error: #DC3312 background for problems"
+        ])
+
+    if any('list' in comp.lower() or 'feed' in comp.lower() for comp in components):
+        prompt_parts.extend([
+            f"• List items: 8px separation (Rubicon small spacing)",
+            f"• List background: #FFFFFF for each item",
+            f"• Subtle borders: #E5E5E5 color between items"
+        ])
+
+    if any('form' in comp.lower() or 'input' in comp.lower() for comp in components):
+        prompt_parts.extend([
+            f"• Input fields: 48px height minimum, 8px corner radius",
+            f"• Input borders: #E5E5E5 color, 1px width",
+            f"• Focus state: #D63941 border color",
+            f"• Label text: Montserrat Medium 15px, #6F6F6F color"
+        ])
+
+    # Add final Rubicon compliance instructions
+    prompt_parts.extend([
+        f"• Ensure all text meets WCAG AA contrast ratios",
+        f"• Use Rubicon icon set for all interface elements",
+        f"• Apply proper component spacing following 8px grid",
+        f"• Include micro-interactions for touch feedback",
+        f"• Make it look like a professional redBus product"
+    ])
+
+    return "\n".join(prompt_parts)
+
+def _get_figma_make_instructions() -> str:
+    """
+    Generate step-by-step instructions for using Figma Make.
+    """
+    return """
+## 🚀 How to Use Figma Make with These Prompts:
+
+### Step 1: Open Figma Make
+1. Go to [Figma Make](https://www.figma.com/solutions/ai-wireframe-generator/)
+2. Click "Start making" or open Figma Make in your workspace
+
+### Step 2: Use the Generated Prompt
+1. **Copy the entire prompt** from `figma_make_prompt` above
+2. **Paste it into Figma Make's prompt box**
+3. **Click "Generate"** to create your wireframe
+
+### Step 3: Refine and Iterate
+1. **Edit in the visual editor** to adjust colors, spacing, or layout
+2. **Use follow-up prompts** like "Make the buttons larger" or "Add more spacing"
+3. **Copy to main canvas** when satisfied with the design
+
+### Step 4: Add to Your PRD
+1. **Get the Figma link** from your generated design
+2. **Add it to your PRD** under the wireframe section
+3. **Share with stakeholders** for feedback
+
+### Pro Tips for Figma Make:
+- **Be specific**: More detailed prompts = better results
+- **Iterate**: Use follow-up prompts to refine
+- **Combine**: Mix generated elements with your existing designs
+- **Export**: Copy designs to your main Figma files
+
+### Example Workflow:
+```
+PRD Generated → Copy Figma Prompt → Figma Make → Refine Design → Get Link → Update PRD
+```
+
+**This gives you AI-generated wireframes that look professional and integrate perfectly with your Figma workflow!**
+"""
+
+# Import necessary tool classes from Google ADK
+try:
+    from google.adk.tools import BaseTool
+except ImportError:
+    # Fallback for older versions
+    from google.adk.agents.tools import BaseTool
+
+# Figma MCP Tool Classes
+class SearchFigmaComponentsTool(BaseTool):
+    """Tool for searching Figma components in redBus design system"""
+
+    def __init__(self):
+        super().__init__(
+            name="search_figma_components",
+            description="Search for existing Figma components in redBus design system"
+        )
+
+    def run(self, query: str, component_type: str = "all") -> Dict[str, Any]:
+        return search_figma_components(query, component_type)
+
+class GetFigmaScreenPatternsTool(BaseTool):
+    """Tool for getting screen patterns from existing redBus Figma designs"""
+
+    def __init__(self):
+        super().__init__(
+            name="get_figma_screen_patterns",
+            description="Get common screen patterns from existing redBus Figma designs"
+        )
+
+    def run(self, feature_type: str) -> Dict[str, Any]:
+        return get_figma_screen_patterns(feature_type)
+
+class AnalyzeExistingDesignsTool(BaseTool):
+    """Tool for analyzing existing redBus designs"""
+
+    def __init__(self):
+        super().__init__(
+            name="analyze_existing_designs",
+            description="Analyze existing redBus designs to find similar patterns"
+        )
+
+    def run(self, feature_description: str) -> Dict[str, Any]:
+        return analyze_existing_designs(feature_description)
+
+class GenerateFigmaMakePromptsTool(BaseTool):
+    """Tool for generating Figma Make AI prompts and visual wireframes"""
+
+    def __init__(self):
+        super().__init__(
+            name="generate_figma_make_prompts",
+            description="Generate optimized prompts for Figma Make AI wireframe generator"
+        )
+
+    def run(self, screen_description: str, component_details: Dict[str, Any]) -> Dict[str, Any]:
+        return generate_figma_make_prompt(screen_description, component_details)
+
+# Create tool instances
+figma_mcp_tools = [
+    SearchFigmaComponentsTool(),
+    GetFigmaScreenPatternsTool(),
+    AnalyzeExistingDesignsTool(),
+    GenerateFigmaMakePromptsTool()
+]
 
 design_wireframe_agent = Agent(
     model='gemini-2.0-flash-exp',
@@ -131,11 +756,90 @@ Rubicon organizes components in a hierarchical structure:
 
 Given a PRD or feature description, generate:
 
-1. **Screen-by-screen wireframes** (text-based ASCII art or Mermaid)
-2. **Component specifications**
+1. **Screen-by-screen wireframes** (Mermaid diagrams + Figma Make prompts)
+2. **Component specifications** (Strictly following Rubicon Design System)
 3. **Interaction patterns**
 4. **Responsive behavior**
 5. **Design system mappings**
+
+## 🔴 CRITICAL: Rubicon Design System Compliance
+
+**You MUST adhere to redBus Rubicon Design System principles:**
+
+### 🎨 Color Usage (MANDATORY):
+- **Primary Brand**: #D63941 (Light) / #DE5E65 (Dark) - ONLY for primary actions
+- **Brand Surface**: #FFDAD6 - ONLY for brand-related backgrounds
+- **Success**: #008531 - ONLY for confirmations and positive states
+- **Warning/Alert**: #BD5500 - ONLY for warnings and cautions
+- **Error/Destructive**: #DC3312 - ONLY for errors and destructive actions
+- **Info**: #325DE9 - ONLY for information and links
+- **Neutral Background**: #F2F2F8 (Light) / #000000 (Dark)
+- **Component Surface**: #FFFFFF (Light) / #18181B (Dark)
+
+### 📝 Typography (MANDATORY):
+- **Display**: 46px, 34px, 28px, 22px (Regular/Medium/Bold)
+- **Headline**: 17px (Regular/Medium/Bold)
+- **Subhead**: 15px (Regular/Medium/Bold)
+- **Body**: 17px (Regular/Medium/Bold)
+- **Caption**: 12px (Regular/Medium/Bold)
+- **Font Family**: Montserrat for headings, Open Sans for body text
+
+### 📏 Spacing (MANDATORY):
+- **Base Unit**: 8px grid system
+- **Micro**: 4px, **Small**: 8px, **Medium**: 16px
+- **Large**: 24px, **X-Large**: 32px
+
+### 🔘 Corner Radius (MANDATORY):
+- **Small**: 4px, **Medium**: 8px, **Large**: 12px
+- **X-Large**: 16px, **2X-Large**: 20px
+
+### 🎯 Touch Targets (MANDATORY):
+- **Minimum**: 44px height for all interactive elements
+- **Recommended**: 48px for primary actions
+
+### 🏗️ Component Architecture (MANDATORY):
+**ALWAYS use existing Rubicon components:**
+- `ButtonView` (Crystal) - Primary, Secondary, Ghost variants
+- `InfoCardView` (Crystal) - For information display
+- `TextInputView` (Crystal) - For form inputs
+- `StatusBadge` (Crystal) - For status indicators
+
+**NEVER create new component designs** - Always reference existing Rubicon components!
+
+## Figma Make Integration:
+
+Generate **perfect prompts** for [Figma Make AI Wireframe Generator](https://www.figma.com/solutions/ai-wireframe-generator/):
+
+**Figma Make Prompts**: Natural language descriptions optimized for Figma's AI with explicit Rubicon references:
+```markdown
+Create a redBus mobile app screen for [feature] using Rubicon Design System:
+- Header with Montserrat Bold 22px title in #1D1D1D
+- Content cards with 16px padding, 12px corner radius, #FFFFFF background
+- Primary CTA button: 48px height, #D63941 background, Montserrat Medium 17px
+- Use 8px spacing grid throughout
+- Include appropriate redBus-style icons
+```
+
+**Mermaid Diagrams**: Visual component relationships
+**Copy-Paste Ready**: Prompts you can directly paste into Figma Make
+
+Use the `generate_figma_make_prompts` tool for each screen to get AI-ready prompts with Rubicon compliance.
+
+## Figma MCP Integration:
+
+If Figma MCP is available and redBus designs are accessible:
+
+1. **Fetch Existing Designs**: Query Figma MCP for similar patterns and components
+2. **Analyze Design Patterns**: Extract common layouts, components, and interactions from existing redBus screens
+3. **Ensure Consistency**: Map new designs to existing Figma components and maintain Rubicon Design System compliance
+4. **Reference Existing Assets**: Link to actual Figma files and components for implementation
+
+## Enhanced Capabilities with Figma MCP:
+
+- **Pattern Recognition**: Identify similar UI patterns from existing redBus screens
+- **Component Reuse**: Suggest using existing Figma components instead of creating new ones
+- **Design Consistency**: Ensure new designs match existing redBus design patterns
+- **Asset Integration**: Reference actual icons, illustrations, and design tokens from Figma
 
 ## Output Format:
 
@@ -160,35 +864,43 @@ Given a PRD or feature description, generate:
 - From: Home Screen → "Track Bus" button
 - From: Booking Details → "Start Tracking" CTA
 
-**Wireframe** (ASCII):
+**Wireframe** (Mermaid):
+```mermaid
+graph TD
+    A[Bus Tracking Screen] --> B[Header with Back & Menu]
+    B --> C[Map Container 300px]
+    C --> D[Status Row with Live Indicator]
+    D --> E[Info Card - Location & ETA]
+    E --> F[Stop Tracking CTA Button]
+
+    style A fill:#f5f5f5,stroke:#333,stroke-width:3px
+    style B fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style C fill:#ffffff,stroke:#4caf50,stroke-width:2px
+    style D fill:#fff3e0,stroke:#ff9800,stroke-width:2px
+    style E fill:#f8f9fa,stroke:#6c757d,stroke-width:1px
+    style F fill:#d32f2f,stroke:#0d47a1,stroke-width:2px
 ```
-┌──────────────────────────────────────┐
-│ ←  Bus Tracking           [•••]      │ ← Header (64px)
-├──────────────────────────────────────┤
-│                                       │
-│  ┌────────────────────────────────┐  │
-│  │                                 │  │ ← Map Container
-│  │        [  MAP VIEW  ]          │  │   (300px height)
-│  │      Bus current location       │  │
-│  │                                 │  │
-│  └────────────────────────────────┘  │
-│                                       │
-│  Bus No: KA-01-AB-1234     [Live] ⚫ │ ← Status Row
-│                                       │
-│  ┌────────────────────────────────┐  │
-│  │  📍 Current Location            │  │ ← Info Card
-│  │  Silk Board Junction            │  │   (Card style)
-│  │                                 │  │
-│  │  🕐 Estimated Arrival           │  │
-│  │  15 minutes                     │  │
-│  └────────────────────────────────┘  │
-│                                       │
-│  ┌────────────────────────────────┐  │ ← Primary CTA
-│  │     Stop Tracking               │  │   (48px height)
-│  └────────────────────────────────┘  │   (redBus Red)
-│                                       │
-└──────────────────────────────────────┘
+
+**Figma Make Prompt** (Copy & Paste into Figma Make):
 ```
+Create a mobile app screen for real-time bus tracking with:
+• Clean, modern mobile interface with card-based design
+• Professional typography and spacing
+• Header section with navigation and clear title
+• Main content area with information cards
+• Cards should have subtle shadows and rounded corners
+• Call-to-action buttons at the bottom
+• Primary button in brand red color (#D63941)
+• Use a cohesive color palette with good contrast
+• Include appropriate icons for actions and navigation
+• Add micro-interactions and hover states where appropriate
+• Ensure touch-friendly button sizes (minimum 44px height)
+• Make it look modern and professional
+```
+
+**Automated Figma Generation**: The system will automatically paste this prompt into Figma Make, generate the design, and return the actual Figma link and screenshot for your PRD!
+
+**Manual Fallback**: If automation fails, copy the prompt above and paste it into [Figma Make](https://www.figma.com/solutions/ai-wireframe-generator/) to generate professional wireframes manually.
 
 **Component Breakdown**:
 
@@ -826,5 +1538,5 @@ redSpec.AI Project
 
 Use ASCII art for quick wireframes, recommend Figma for final designs.
 """,
-    tools=[]
+    tools=figma_mcp_tools
 )

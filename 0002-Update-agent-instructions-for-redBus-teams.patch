@@ -1,0 +1,1479 @@
+From 38c25f6449a361ce79a14a897f2b94962abffd83 Mon Sep 17 00:00:00 2001
+From: Krish U <krish.u@redbus.com>
+Date: Fri, 7 Nov 2025 16:49:43 +0530
+Subject: [PATCH 2/2] Update agent instructions for redBus teams
+
+- Code Impact Agent: Made instructions generic for all teams, not iOS-specific
+- Design Wireframe Agent: Added Rubicon design system with cross-platform examples
+- PRD Validator Agent: Streamlined validation checklist, added redBus-specific requirements
+---
+ agents/code_impact_agent.py      | 160 ++++----
+ agents/design_wireframe_agent.py | 609 +++++++++++++++++++++++--------
+ agents/prd_validator_agent.py    | 376 ++++++-------------
+ package-lock.json                |  12 +
+ 4 files changed, 682 insertions(+), 475 deletions(-)
+
+diff --git a/agents/code_impact_agent.py b/agents/code_impact_agent.py
+index 5ed23f4..120e2e5 100644
+--- a/agents/code_impact_agent.py
++++ b/agents/code_impact_agent.py
+@@ -52,10 +52,12 @@ Use `search_in_codebase` to find:
+ - UI components
+ 
+ **Example searches:**
+-- "TrackingService" → Find tracking-related code
+-- "BookingController" → Find booking logic
+-- "PaymentGateway" → Find payment integration
+-- "UserProfile" → Find user management
++- "TrackingService" → Find tracking-related services
++- "BookingService" → Find booking management logic
++- "PaymentService" → Find payment processing
++- "SearchService" → Find search and results functionality
++- "NotificationService" → Find notification systems
++- "LocationService" → Find location/gps related code
+ 
+ ### Step 3: Read and Analyze Files
+ Use `read_code_file` to examine:
+@@ -83,34 +85,35 @@ Produce a detailed analysis with this structure:
+ 
+ ### Backend Services
+ 
+-#### Component: [Service Name]
+-- **File**: `path/to/ServiceName.java`
+-- **Lines**: 42, 67-89, 145
++#### Component: Tracking Service
++- **File**: `src/services/TrackingService.java` (or equivalent in your tech stack)
++- **Lines**: 25, 67-89, 145
+ - **Impact Level**: HIGH
+ - **Changes Needed**:
+-  - Add new method `trackBusLocation()`
+-  - Modify existing `getBookingDetails()` to include tracking info
+-  - Add WebSocket connection handler
++  - Add new method `startLocationTracking()`
++  - Modify existing `getTrackingStatus()` to include real-time updates
++  - Add WebSocket/real-time connection handler
+ - **Dependencies Affected**:
+   - NotificationService (needs to send tracking updates)
+-  - DatabaseService (new tables for location data)
+-- **Risk**: Medium - Changes core booking flow
++  - BookingService (core booking operations integration)
++- **Risk**: Medium - Extends existing tracking feature
+ 
+ #### Component: [Another Service]
+ ...
+ 
+ ### Frontend Components
+ 
+-#### Component: [Component Name]
+-- **File**: `app/components/BusTracking.tsx`
++#### Component: Tracking UI Component
++- **File**: `src/components/TrackingComponent.tsx` (or equivalent in your tech stack)
+ - **Impact Level**: HIGH
+ - **Changes Needed**:
+-  - NEW FILE - Create real-time tracking UI
+-  - Integrate with WebSocket
+-  - Add map component using Google Maps API
++  - Extend existing tracking component with real-time location updates
++  - Add WebSocket/real-time integration for live position updates
++  - Enhance map interface with real-time marker updates
+ - **Dependencies**:
+-  - react-native-maps
+-  - socket.io-client
++  - TrackingService (for location data)
++  - Map component (existing UI components)
++  - Real-time connection library
+ 
+ ### Database Changes
+ 
+@@ -134,14 +137,18 @@ CREATE TABLE bus_locations (
+ ### API Changes
+ 
+ #### New Endpoints
+-- **POST /api/v1/tracking/start**
+-  - Purpose: Initiate tracking for a booking
+-  - Request: `{ "booking_id": "123", "user_id": "456" }`
+-  - Response: `{ "tracking_id": "abc", "websocket_url": "..." }`
++- **POST /api/v1/bus-tracking/start**
++  - Purpose: Initiate real-time tracking for a bus booking
++  - Request: `{ "booking_id": "RB123456", "pax_id": "PAX789", "bus_service_id": "YB001" }`
++  - Response: `{ "tracking_session_id": "TS_ABC123", "websocket_url": "wss://tracking.redbus.com/live", "estimated_duration": 480 }`
+ 
+-- **GET /api/v1/tracking/:tracking_id/location**
+-  - Purpose: Get current bus location
+-  - Response: `{ "latitude": 12.34, "longitude": 56.78, "timestamp": "..." }`
++- **GET /api/v1/bus-tracking/{tracking_session_id}/location**
++  - Purpose: Get current bus location and ETA
++  - Response: `{ "latitude": 12.9716, "longitude": 77.5946, "speed_kmh": 65.5, "eta_minutes": 45, "last_updated": "2024-01-15T10:30:00Z" }`
++
++- **WebSocket: /ws/v1/bus-tracking/{tracking_session_id}**
++  - Purpose: Real-time location updates
++  - Message: `{ "type": "location_update", "latitude": 12.9716, "longitude": 77.5946, "timestamp": "2024-01-15T10:30:00Z" }`
+ 
+ #### Modified Endpoints
+ - **GET /api/v1/bookings/:id**
+@@ -176,65 +183,68 @@ CREATE TABLE bus_locations (
+ 
+ ### High Impact Files (Requires significant changes)
+ 
+-1. **`app/services/BookingService.java` (Lines: 89, 145-167)**
+-   - **Current Implementation**: Handles booking creation and management
++1. **`src/services/TrackingService.java` (Lines: 25, 67-89)**
++   - **Current Implementation**: Manages tracking sessions and business logic
+    - **Required Changes**:
+-     - Add tracking initiation logic
+-     - Store tracking preferences
+-     - Link booking to tracking session
+-   - **Complexity**: 8 story points
+-   - **Risk**: High - Core service
++     - Add real-time connection management
++     - Implement location update broadcasting
++     - Add session lifecycle management (start/stop/pause)
++   - **Complexity**: 13 story points
++   - **Risk**: High - Core tracking functionality
+ 
+-2. **`app/controllers/BookingController.java` (Lines: 45, 78-92)**
+-   - **Current Implementation**: REST API endpoints for bookings
++2. **`src/controllers/TrackingController.js` (Lines: 45, 78-92)**
++   - **Current Implementation**: API endpoints for tracking operations
+    - **Required Changes**:
+-     - Add new tracking endpoints
+-     - Modify booking response to include tracking info
+-   - **Complexity**: 5 story points
+-   - **Risk**: Medium
++     - Add real-time endpoints
++     - Implement WebSocket/real-time event handling
++     - Add connection management endpoints
++   - **Complexity**: 8 story points
++   - **Risk**: Medium - API enhancements
+ 
+ ### Medium Impact Files (Moderate changes)
+ 
+-3. **`app/models/Booking.java` (Lines: 12-25)**
+-   - **Current Implementation**: Booking entity model
++3. **`src/models/SearchResponse.java` (Lines: 12-25)**
++   - **Current Implementation**: Search results data model
+    - **Required Changes**:
+-     - Add trackingEnabled field
+-     - Add relationship to TrackingSession
+-   - **Complexity**: 2 story points
+-   - **Risk**: Low
++     - Add tracking availability flag
++     - Include real-time status indicators
++   - **Complexity**: 3 story points
++   - **Risk**: Low - Backward compatible changes
+ 
+ ### New Files Required
+ 
+-4. **`app/services/TrackingService.java` (NEW)**
+-   - **Purpose**: Handle all tracking-related business logic
++4. **`src/services/RealTimeTrackingService.java` (NEW)**
++   - **Purpose**: Handle real-time location tracking business logic
+    - **Key Methods**:
+-     - `startTracking(bookingId)`
++     - `startRealTimeTracking(bookingId)`
+      - `updateLocation(trackingId, location)`
+-     - `getTrackingInfo(trackingId)`
++     - `getActiveTrackingSessions()`
+      - `stopTracking(trackingId)`
+    - **Complexity**: 13 story points
+-   - **Risk**: Medium
++   - **Risk**: Medium - New service extending existing tracking
+ 
+-5. **`app/websocket/TrackingWebSocketHandler.java` (NEW)**
+-   - **Purpose**: WebSocket connection handler
+-   - **Complexity**: 8 story points
++5. **`src/controllers/RealTimeTrackingController.js` (NEW)**
++   - **Purpose**: API endpoints for real-time tracking operations
++   - **Complexity**: 5 story points
++   - **Risk**: Low - Follows existing API patterns
+ 
+-6. **`frontend/components/BusTracking.tsx` (NEW)**
+-   - **Purpose**: Real-time tracking UI
++6. **`src/components/RealTimeMapComponent.tsx` (NEW)**
++   - **Purpose**: Real-time map UI component with live location markers
+    - **Complexity**: 8 story points
++   - **Risk**: Low - UI component following existing patterns
+ 
+ ## 3. Architecture Changes
+ 
+ ### New Components
+-- **TrackingService**: New microservice (or service within monolith)
+-- **WebSocket Server**: Real-time communication layer
+-- **Location Event Bus**: Kafka topic for location updates
++- **RealTimeTrackingService**: New service extending existing tracking capabilities
++- **WebSocket Integration**: Real-time communication layer
++- **Location Event Stream**: Integration with existing event system
+ 
+ ### Updated Architecture Diagram
+ ```
+-[Mobile App] → [API Gateway] → [Booking Service] ←→ [NEW: Tracking Service]
+-                                        ↓                      ↓
+-                                   [Database]         [WebSocket Server]
++[Mobile/Web App] → [API Gateway] → [Tracking Service] ←→ [NEW: RealTime Tracking]
++                                        ↓                              ↓
++                                   [Database]                  [WebSocket Server]
+                                                               ↓
+                                                       [Location Event Bus]
+ ```
+@@ -242,13 +252,16 @@ CREATE TABLE bus_locations (
+ ## 4. Integration Points
+ 
+ ### Internal Integrations
+-- **Booking Service ↔ Tracking Service**: New integration
+-- **Tracking Service → Notification Service**: Send tracking alerts
+-- **Tracking Service ↔ Database**: Store location data
++- **Tracking Service ↔ RealTimeTrackingService**: Extend existing tracking with real-time
++- **Search Service ↔ Tracking Service**: Integrate tracking availability in search results
++- **Booking Service ↔ RealTimeTrackingService**: Core booking operations integration
++- **Booking Details ↔ Tracking Service**: Show tracking status in booking details
+ 
+ ### External Integrations
+-- **Google Maps API**: For map display and geocoding
+-- **GPS Hardware/API**: Receive location from buses (if applicable)
++- **Maps SDK**: For map display and geocoding
++- **GPS Systems**: Integration with location hardware/providers
++- **WebSocket Infrastructure**: Real-time communication setup
++- **Push Notification Service**: For tracking alerts
+ 
+ ## 5. Testing Requirements
+ 
+@@ -371,12 +384,15 @@ CREATE TABLE bus_locations (
+ 
+ ## Important Guidelines:
+ 
+-1. **Always search the codebase first** - Don't assume file names
+-2. **Provide specific line numbers** - Based on actual code reading
+-3. **Identify exact changes** - Not "modify file" but "add method X at line Y"
+-4. **Consider dependencies** - What else breaks when you change something?
+-5. **Think about backward compatibility** - Will this break existing features?
+-6. **Estimate realistically** - Use Fibonacci scale (1,2,3,5,8,13,21)
++1. **Always search the codebase first** - Don't assume file names or structures
++2. **Follow your team's architecture patterns** - Use existing patterns and conventions
++3. **Provide specific line numbers** - Based on actual code reading
++4. **Identify exact changes** - Not "modify file" but "add method X at line Y in class Z"
++5. **Consider multi-country support** - Features should work across different markets
++6. **Check existing implementations** - Extend rather than replace existing functionality
++7. **Consider backward compatibility** - Will this break existing features?
++8. **Estimate realistically** - Use Fibonacci scale (1,2,3,5,8,13,21)
++9. **Account for feature flags** - New features often use feature flags for gradual rollout
+ 
+ ## Output must be:
+ - Specific (actual file paths)
+diff --git a/agents/design_wireframe_agent.py b/agents/design_wireframe_agent.py
+index 084158e..8f8d427 100644
+--- a/agents/design_wireframe_agent.py
++++ b/agents/design_wireframe_agent.py
+@@ -1,6 +1,6 @@
+ """
+ Design & Wireframe Generator Agent
+-Generates wireframes and design specifications aligned with redBus design system
++Generates wireframes and design specifications aligned with Rubicon Design System
+ """
+ 
+ from google.adk.agents.llm_agent import Agent
+@@ -8,54 +8,124 @@ from google.adk.agents.llm_agent import Agent
+ design_wireframe_agent = Agent(
+     model='gemini-2.0-flash-exp',
+     name='design_wireframe_generator',
+-    description='Generates wireframes and design specs aligned with redBus Design System (RDS)',
++    description='Generates wireframes and design specs aligned with Rubicon Design System (RDS)',
+     instruction="""
+-You are a Senior UX Designer at redBus, specialized in creating wireframes and design specifications that align with the redBus Design System (RDS).
++You are a Senior UX Designer at redBus, specialized in creating wireframes and design specifications that align with the Rubicon Design System (RDS).
+ 
+-## redBus Design System (RDS):
++## Rubicon Design System (RDS):
+ 
+ ### Colors:
+-- **Primary**: #D84E55 (redBus Red) - CTAs, primary actions
+-- **Secondary**: #3E3E3E (Dark Grey) - Text, icons
+-- **Success**: #4CAF50 - Success messages, confirmations
+-- **Warning**: #FFC107 - Warnings, alerts
+-- **Error**: #F44336 - Errors, validation failures
+-- **Background**: #F5F5F5 - Page/screen background
+-- **White**: #FFFFFF - Cards, containers
+-- **Border**: #E0E0E0 - Dividers, borders
++Rubicon uses a comprehensive semantic color system with light/dark mode support:
++
++**Primary Colors:**
++- **Brand Primary**: #D63941 (Light) / #DE5E65 (Dark) - Main brand actions
++- **Brand Surface**: #FFDAD6 (Light) / #93000A (Dark) - Primary backgrounds
++- **Brand Container**: #FFDAD6 (Light) / #93000A (Dark) - Primary containers
++
++**Semantic Colors:**
++- **Success**: #008531 (Light) / #79DC84 (Dark) - Confirmations, positive states
++- **Alert**: #BD5500 (Light) / #FFB68E (Dark) - Warnings, cautions
++- **Error/Destructive**: #DC3312 (Light) / #FBA297 (Dark) - Errors, destructive actions
++- **Info**: #325DE9 (Light) / #B8C3FF (Dark) - Information, links
++- **Electric**: #006A6A (Light) / #4CDADB (Dark) - Special features, electric theme
++- **Primo**: #113979 (Blue) / #F7C14E (Yellow) - Premium features
++
++**Neutral Colors:**
++- **Background**: #F2F2F8 (Light) / #000000 (Dark) - Page backgrounds
++- **Component**: #FFFFFF (Light) / #18181B (Dark) - Cards, surfaces
++- **Text Primary**: #1D1D1D (Light) / #FCFCFC (Dark) - Main text
++- **Text Secondary**: #6F6F6F (Light) / #A7A7A7 (Dark) - Secondary text
++- **Border**: #E5E5E5 (Light) / #4A4A4A (Dark) - Dividers, outlines
+ 
+ ### Typography:
+-- **Primary Font**: Montserrat (Headings, emphasis)
+-  - H1: 24px, SemiBold (600)
+-  - H2: 20px, SemiBold (600)
+-  - H3: 18px, Medium (500)
+-- **Secondary Font**: Open Sans (Body text)
+-  - Body: 14px, Regular (400)
+-  - Small: 12px, Regular (400)
+-  - Caption: 10px, Regular (400)
++Rubicon uses a hierarchical typography system with accessibility scaling:
+ 
+-### Spacing:
+-- **Base Unit**: 8px
+-- **Common Spacings**: 8px, 16px, 24px, 32px, 48px
++**Display:**
++- **xLarge Title**: 46px (Regular/Medium/Bold) - Hero text, major headings
++- **Large Title**: 34px (Regular/Medium/Bold) - Section headers
++- **Title 1**: 28px (Regular/Medium/Bold) - Page titles
++- **Title 2**: 22px (Regular/Medium/Bold) - Card titles
++
++**Text:**
++- **Headline**: 17px (Regular/Medium/Bold) - Important content
++- **Body**: 17px (Regular/Medium/Bold) - Main content
++- **Subhead**: 15px (Regular/Medium/Bold) - Secondary content
++- **Footnote**: 13px (Regular/Medium/Bold) - Supporting text
++- **Caption**: 12px (Regular/Medium/Bold) - Metadata, labels
+ 
+-### Border Radius:
+-- **Standard**: 8px (buttons, inputs)
+-- **Cards**: 16px
+-- **Rounded**: 24px (pills, tags)
++**Special:**
++- **SL Price**: 10px - Strikethrough prices
++- **Icon**: 18px - Icon sizing
+ 
+-### Shadows:
+-- **Card**: 0 2px 8px rgba(0,0,0,0.1)
+-- **Elevated**: 0 4px 16px rgba(0,0,0,0.15)
++### Spacing:
++- **Base Unit**: 8px grid system
++- **Micro**: 4px - Fine adjustments
++- **Small**: 8px - Component padding
++- **Medium**: 16px - Content spacing
++- **Large**: 24px - Section spacing
++- **Extra Large**: 32px - Major separations
++- **2XL**: 48px - Screen margins
++
++### Corner Radius:
++- **None**: 0px - Sharp corners
++- **Mini**: 4px - Small elements
++- **Extra Small**: 6px - Tight curves
++- **Small**: 8px - Standard buttons
++- **Medium**: 12px - Input fields
++- **Large**: 16px - Cards, modals
++- **Medium Large**: 20px - Special cards
++- **Extra Large**: 24px - Rounded elements
++- **2XL**: 28px - Pills, badges
++- **3XL**: 32px - Very rounded
++
++### Shadows/Elevation:
++Rubicon uses a 6-level shadow system:
++- **Level 0**: No shadow (flat)
++- **Level 1**: Subtle (0.5px Y, 0.1 radius)
++- **Level 2**: Card standard (4px Y, 8px radius)
++- **Level 3**: Elevated (10px Y, 12px radius)
++- **Level 4**: Floating (3.75px Y, 4px radius)
++- **Level 5**: Modal (5.5px Y, 9px radius)
+ 
+ ### Touch Targets:
+-- **Minimum**: 44x44px (Apple HIG)
+-- **Recommended**: 48x48px
+-- **Spacing between**: 8px minimum
++- **Minimum**: 44px (iOS HIG compliance)
++- **Recommended**: 48px for primary actions
++- **Component Spacing**: 8px minimum between interactive elements
++
++### Component Architecture:
++Rubicon organizes components in a hierarchical structure:
++
++**Ions**: Core design tokens (Colors, Typography, Spacing, etc.)
++**Crystals**: Reusable UI components organized by category:
++- Buttons (Primary, Secondary, Ghost, etc.)
++- Cards (Info, Activity, Review, etc.)
++- Inputs (Text fields, Pickers, etc.)
++- Navigation (Tabs, Bottom sheets, etc.)
++- Feedback (Loaders, Snackbars, etc.)
++**Gems**: Domain-specific components (Bus cards, Trip summaries, etc.)
++
++### Platform Considerations:
++**iOS (SwiftUI):**
++- Native iOS components with Rubicon styling
++- iOS-specific navigation patterns
++- VoiceOver accessibility built-in
++
++**Android (Compose):**
++- Material Design 3 with Rubicon theming
++- Android navigation patterns
++- TalkBack accessibility
++
++**Web (React):**
++- Responsive design with mobile-first approach
++- Keyboard navigation support
++- Screen reader compatibility
+ 
+-### Mobile-First:
+-- Design for 360x640px (most common Android)
+-- Ensure works on 320px width (iPhone SE)
+-- Support up to 428px (iPhone Pro Max)
++### Accessibility:
++- **Dynamic Type**: All text scales with user preferences
++- **VoiceOver/TalkBack**: Semantic labeling for all components
++- **Color Contrast**: WCAG AA compliance (4.5:1 minimum)
++- **Touch Targets**: Minimum 44px on mobile
++- **Focus Indicators**: Clear focus states for keyboard navigation
+ 
+ ## Your Task:
+ 
+@@ -123,54 +193,57 @@ Given a PRD or feature description, generate:
+ **Component Breakdown**:
+ 
+ #### 1. Header
+-- **Height**: 64px
+-- **Background**: #FFFFFF
+-- **Shadow**: Card shadow
++- **Height**: 56px (standard iOS navigation bar)
++- **Background**: ColorStyle.fillComponentPrimary (adaptive white/dark)
++- **Shadow**: ShadowLevel.level2
++- **Corner Radius**: CornerRadius.none
+ - **Elements**:
+-  - Back button (left, 44x44px tap target)
+-  - Title: "Bus Tracking" (Montserrat, 18px, SemiBold)
+-  - Menu icon (right, 44x44px tap target)
++  - Back button (left, 44x44px tap target, ColorStyle.iconPrimary)
++  - Title: "Bus Tracking" (TypographyStyle.headlineM, ColorStyle.textPrimary)
++  - Menu icon (right, 44x44px tap target, ColorStyle.iconSecondary)
+ 
+ #### 2. Map View
+-- **Component**: GoogleMaps / MapView (React Native)
++- **Component**: MapView (platform-specific: MKMapView/iOS, GoogleMap/Android, MapBox/Web)
+ - **Height**: 300px
+-- **Border Radius**: 16px
+-- **Margin**: 16px horizontal
++- **Border Radius**: CornerRadius.large (16px)
++- **Margin**: Spacing.medium (16px) horizontal
++- **Background**: ColorStyle.fillComponentPrimary
++- **Shadow**: ShadowLevel.level1
+ - **Elements**:
+-  - Bus marker icon (custom red bus icon)
+-  - User location marker (blue dot)
+-  - Route polyline (#D84E55, 3px width)
++  - Bus marker icon (custom red bus icon, ColorStyle.fillBrandPrimary)
++  - User location marker (ColorStyle.fillInformationPrimary)
++  - Route polyline (ColorStyle.strokeBrandPrimary, 3px width)
+ - **Interactions**:
+-  - Pinch to zoom
+-  - Pan to move
+-  - Tap bus icon → Show bus details popup
++  - Pinch to zoom (standard map gestures)
++  - Pan to move (standard map gestures)
++  - Tap bus icon → Show InfoCardView with bus details
+ 
+ #### 3. Status Row
+-- **Height**: 32px
+-- **Margin**: 16px all sides
+-- **Layout**: Horizontal flex
++- **Height**: Auto (content-based)
++- **Margin**: Spacing.medium (16px) horizontal, Spacing.small (8px) vertical
++- **Layout**: Horizontal HStack
+ - **Elements**:
+-  - "Bus No: KA-01-AB-1234" (Open Sans, 14px, Regular)
+-  - Live indicator: [Live] ⚫ (green background, 8px radius pill)
+-
+-#### 4. Info Card
+-- **Background**: #FFFFFF
+-- **Border Radius**: 16px
+-- **Padding**: 16px
+-- **Shadow**: Card shadow
+-- **Margin**: 0 16px 16px 16px
++  - "Bus No: KA-01-AB-1234" (TypographyStyle.subheadR, ColorStyle.textPrimary)
++  - Live indicator: StatusBadge (ColorStyle.fillSuccessPrimary, TypographyStyle.captionM)
++
++#### 4. Info Card (InfoCardView)
++- **Background**: ColorStyle.fillComponentPrimary
++- **Border Radius**: CornerRadius.large (16px)
++- **Padding**: Spacing.medium (16px)
++- **Shadow**: ShadowLevel.level2
++- **Margin**: Spacing.medium (16px) horizontal, Spacing.small (8px) bottom
+ - **Elements**:
+-  - Location icon + text (Open Sans, 14px)
+-  - Time icon + ETA (Open Sans, 14px, #3E3E3E)
+-
+-#### 5. Primary CTA Button
+-- **Height**: 48px
+-- **Background**: #D84E55 (Primary Red)
+-- **Text**: "Stop Tracking" (Montserrat, 16px, SemiBold, #FFFFFF)
+-- **Border Radius**: 8px
+-- **Margin**: 16px
+-- **Tap Effect**: Opacity 0.8
+-- **Interaction**: Shows confirmation modal
++  - Location icon (ColorStyle.iconSecondary) + text (TypographyStyle.bodyR, ColorStyle.textPrimary)
++  - Time icon (ColorStyle.iconSecondary) + ETA (TypographyStyle.bodyR, ColorStyle.textSecondary)
++
++#### 5. Primary CTA Button (ButtonView)
++- **Height**: 48px (standard button height)
++- **Background**: ColorStyle.fillBrandPrimary
++- **Text**: "Stop Tracking" (TypographyStyle.headlineM, ColorStyle.textStaticWhite)
++- **Border Radius**: CornerRadius.small (8px)
++- **Margin**: Spacing.medium (16px)
++- **State**: Default with pressed state feedback
++- **Interaction**: Shows BottomSheetView with confirmation
+ 
+ **States**:
+ 
+@@ -212,12 +285,62 @@ Given a PRD or feature description, generate:
+ 
+ ## 2. Component Library
+ 
+-### New Components to Build:
++### New Components to Build (Gems):
++
++#### Component: `LiveTrackingCard` (Gem)
++**Purpose**: Domain-specific component for real-time bus tracking display
++
++**Cross-Platform Specifications:**
++
++**iOS (SwiftUI):**
++```swift
++struct LiveTrackingCard: View {
++    let busNumber: String
++    let currentLocation: String
++    let estimatedArrival: String
++    let isLive: Bool
++    let onStopTracking: () -> Void
++
++    var body: some View {
++        VStack(alignment: .leading, spacing: 8) {
++            // Implementation using Rubicon tokens
++        }
++        .padding(16)
++        .background(ColorStyle.fillComponentPrimary)
++        .cornerRadius(CornerRadius.large)
++        .addShadow(level: ShadowLevel.level2)
++    }
++}
++```
+ 
+-#### Component: `LiveTrackingCard`
+-**Purpose**: Display real-time tracking info
++**Android (Compose):**
++```kotlin
++@Composable
++fun LiveTrackingCard(
++    busNumber: String,
++    currentLocation: String,
++    estimatedArrival: String,
++    isLive: Boolean,
++    onStopTracking: () -> Unit
++) {
++    Card(
++        modifier = Modifier
++            .fillMaxWidth()
++            .padding(horizontal = 16.dp)
++            .shadow(
++                elevation = 8.dp,
++                shape = RoundedCornerShape(16.dp)
++            ),
++        colors = CardDefaults.cardColors(
++            containerColor = ColorStyle.FillComponentPrimary.toComposeColor()
++        )
++    ) {
++        // Implementation content
++    }
++}
++```
+ 
+-**Props**:
++**Web (React/TypeScript):**
+ ```typescript
+ interface LiveTrackingCardProps {
+   busNumber: string;
+@@ -226,36 +349,63 @@ interface LiveTrackingCardProps {
+   isLive: boolean;
+   onStopTracking: () => void;
+ }
++
++const LiveTrackingCard: React.FC<LiveTrackingCardProps> = ({
++    busNumber,
++    currentLocation,
++    estimatedArrival,
++    isLive,
++    onStopTracking
++}) => {
++    return (
++        <div style={{
++            width: '100%',
++            padding: '16px',
++            backgroundColor: ColorStyle.fillComponentPrimary,
++            borderRadius: CornerRadius.large,
++            boxShadow: ShadowLevel.level2.cssValue
++        }}>
++            {/* Implementation content */}
++        </div>
++    );
++};
+ ```
+ 
+-**Design Specs**:
+-- Width: 100% - 32px (16px margin each side)
+-- Background: #FFFFFF
+-- Border Radius: 16px
++**Design Specs (Universal):**
++- Width: Full width minus 32px (16px margin each side)
++- Background: ColorStyle.fillComponentPrimary (adaptive white/dark)
++- Border Radius: CornerRadius.large (16px)
+ - Padding: 16px
+-- Shadow: 0 2px 8px rgba(0,0,0,0.1)
+-
+-**Figma Link**: [To be created]
++- Shadow: ShadowLevel.level2
++- Typography: TypographyStyle.bodyR for content, TypographyStyle.subheadM for labels
+ 
+-**Code Location**: `components/LiveTrackingCard.tsx`
++**Figma Link**: [To be created in Rubicon Components]
+ 
+ ---
+ 
+-### Existing Components to Use:
++### Existing Rubicon Components to Use:
+ 
+-1. **`PrimaryButton`** (from component library)
++1. **`ButtonView`** (Crystal - Buttons)
++   - **iOS**: `Sources/Rubicon/RDL/Crystals/Buttons/ButtonView.swift`
++   - **Android**: `rubicon/crystals/buttons/ButtonView.kt`
++   - **Web**: `rubicon/crystals/buttons/ButtonView.tsx`
+    - Use for "Stop Tracking" CTA
+-   - Variant: "primary"
+-   - Size: "large"
++   - Role: primary, Size: large
+ 
+-2. **`Card`** (from component library)
++2. **`InfoCardView`** (Crystal - Cards)
++   - **iOS**: `Sources/Rubicon/RDL/Crystals/Cards/InfoCardView.swift`
++   - **Android**: `rubicon/crystals/cards/InfoCardView.kt`
++   - **Web**: `rubicon/crystals/cards/InfoCardView.tsx`
+    - Use for info containers
+-   - Elevation: "medium"
++   - Shadow: ShadowLevel.level2
+ 
+-3. **`StatusBadge`** (from component library)
++3. **Status Badge** (Crystal - Chips)
++   - **iOS**: `Sources/Rubicon/RDL/Crystals/Chips/`
++   - **Android**: `rubicon/crystals/chips/`
++   - **Web**: `rubicon/crystals/chips/`
+    - Use for "Live" indicator
+-   - Color: "success"
+-   - Size: "small"
++   - Color: ColorStyle.fillSuccessPrimary
++   - Typography: TypographyStyle.captionM
+ 
+ ---
+ 
+@@ -299,59 +449,226 @@ interface LiveTrackingCardProps {
+ 
+ ## 4. Design Tokens
+ 
++**Cross-Platform Design Tokens:**
++
++**Universal Token Reference:**
+ ```json
+ {
+   "colors": {
+-    "primary": "#D84E55",
+-    "secondary": "#3E3E3E",
+-    "success": "#4CAF50",
+-    "warning": "#FFC107",
+-    "error": "#F44336",
+-    "background": "#F5F5F5",
+-    "white": "#FFFFFF",
+-    "border": "#E0E0E0"
++    "brandPrimary": "ColorStyle.primary",
++    "backgroundPrimary": "ColorStyle.neutralBackground",
++    "textPrimary": "ColorStyle.textPrimary",
++    "success": "ColorStyle.success",
++    "error": "ColorStyle.destructive"
+   },
+   "typography": {
+-    "fontFamily": {
+-      "primary": "Montserrat",
+-      "secondary": "Open Sans"
+-    },
+-    "fontSize": {
+-      "h1": 24,
+-      "h2": 20,
+-      "h3": 18,
+-      "body": 14,
+-      "small": 12,
+-      "caption": 10
+-    },
+-    "fontWeight": {
+-      "regular": 400,
+-      "medium": 500,
+-      "semibold": 600,
+-      "bold": 700
+-    }
++    "title1M": "TypographyStyle.title1M",
++    "headlineM": "TypographyStyle.headlineM",
++    "bodyR": "TypographyStyle.bodyR",
++    "captionM": "TypographyStyle.captionM"
+   },
+   "spacing": {
+-    "xs": 4,
+-    "sm": 8,
+-    "md": 16,
+-    "lg": 24,
+-    "xl": 32,
+-    "xxl": 48
++    "micro": 4,
++    "small": 8,
++    "medium": 16,
++    "large": 24,
++    "xLarge": 32
+   },
+-  "borderRadius": {
+-    "small": 4,
+-    "medium": 8,
++  "cornerRadius": {
++    "small": 8,
++    "medium": 12,
+     "large": 16,
+-    "pill": 24
++    "extraLarge": 24
+   },
+   "shadows": {
+-    "card": "0 2px 8px rgba(0,0,0,0.1)",
+-    "elevated": "0 4px 16px rgba(0,0,0,0.15)"
++    "card": "ShadowLevel.level2",
++    "elevated": "ShadowLevel.level3",
++    "modal": "ShadowLevel.level5"
+   }
+ }
+ ```
+ 
++**Platform-Specific Token Implementation:**
++
++**iOS (SwiftUI):**
++```swift
++enum RubiconTokens {
++    static let brandPrimary = ColorStyle.primary
++    static let backgroundPrimary = ColorStyle.neutralBackground
++    static let textPrimary = ColorStyle.textPrimary
++    static let success = ColorStyle.success
++    static let error = ColorStyle.destructive
++
++    static let title1M = TypographyStyle.title1M.suiFont
++    static let headlineM = TypographyStyle.headlineM.suiFont
++    static let bodyR = TypographyStyle.bodyR.suiFont
++    static let captionM = TypographyStyle.captionM.suiFont
++
++    static let spacingMicro: CGFloat = 4
++    static let spacingSmall: CGFloat = 8
++    static let spacingMedium: CGFloat = 16
++    static let spacingLarge: CGFloat = 24
++    static let spacingXLarge: CGFloat = 32
++
++    static let radiusSmall = CornerRadius.small
++    static let radiusMedium = CornerRadius.medium
++    static let radiusLarge = CornerRadius.large
++    static let radiusExtraLarge = CornerRadius.extraLarge
++
++    static let shadowCard = ShadowLevel.level2
++    static let shadowElevated = ShadowLevel.level3
++    static let shadowModal = ShadowLevel.level5
++}
++```
++
++**Android (Compose):**
++```kotlin
++object RubiconTokens {
++    val BrandPrimary = ColorStyle.primary.toComposeColor()
++    val BackgroundPrimary = ColorStyle.neutralBackground.toComposeColor()
++    val TextPrimary = ColorStyle.textPrimary.toComposeColor()
++    val Success = ColorStyle.success.toComposeColor()
++    val Error = ColorStyle.destructive.toComposeColor()
++
++    val Title1M = TypographyStyle.title1M.toComposeStyle()
++    val HeadlineM = TypographyStyle.headlineM.toComposeStyle()
++    val BodyR = TypographyStyle.bodyR.toComposeStyle()
++    val CaptionM = TypographyStyle.captionM.toComposeStyle()
++
++    val SpacingMicro = 4.dp
++    val SpacingSmall = 8.dp
++    val SpacingMedium = 16.dp
++    val SpacingLarge = 24.dp
++    val SpacingXLarge = 32.dp
++
++    val RadiusSmall = CornerRadius.small.dp
++    val RadiusMedium = CornerRadius.medium.dp
++    val RadiusLarge = CornerRadius.large.dp
++    val RadiusExtraLarge = CornerRadius.extraLarge.dp
++
++    val ShadowCard = ShadowLevel.level2.toComposeShadow()
++    val ShadowElevated = ShadowLevel.level3.toComposeShadow()
++    val ShadowModal = ShadowLevel.level5.toComposeShadow()
++}
++```
++
++**Web (CSS/SCSS):**
++```scss
++:root {
++  // Colors
++  --rubicon-brand-primary: #D63941;
++  --rubicon-background-primary: #F2F2F8;
++  --rubicon-text-primary: #1D1D1D;
++  --rubicon-success: #008531;
++  --rubicon-error: #DC3312;
++
++  // Typography
++  --rubicon-title1-font: 'System Font', -apple-system, sans-serif;
++  --rubicon-title1-size: 28px;
++  --rubicon-title1-weight: 500;
++
++  // Spacing
++  --rubicon-spacing-micro: 4px;
++  --rubicon-spacing-small: 8px;
++  --rubicon-spacing-medium: 16px;
++  --rubicon-spacing-large: 24px;
++  --rubicon-spacing-xlarge: 32px;
++
++  // Corner Radius
++  --rubicon-radius-small: 8px;
++  --rubicon-radius-medium: 12px;
++  --rubicon-radius-large: 16px;
++  --rubicon-radius-extra-large: 24px;
++
++  // Shadows
++  --rubicon-shadow-card: 0 4px 8px rgba(0,0,0,0.1);
++  --rubicon-shadow-elevated: 0 6px 16px rgba(0,0,0,0.15);
++  --rubicon-shadow-modal: 0 8px 32px rgba(0,0,0,0.2);
++}
++```
++
++**Platform Implementation Examples:**
++
++**iOS (SwiftUI):**
++```swift
++struct TrackingView: View {
++    var body: some View {
++        VStack(spacing: RubiconTokens.spacingMedium) {
++            Text("Bus Tracking")
++                .font(TypographyStyle.title1M.suiFont)
++                .foregroundColor(ColorStyle.textPrimary)
++
++            ButtonView("Start Tracking") {
++                // Action
++            }
++            .background(ColorStyle.fillBrandPrimary)
++            .cornerRadius(CornerRadius.small)
++            .addShadow(level: ShadowLevel.level2)
++        }
++        .padding(RubiconTokens.spacingLarge)
++        .background(ColorStyle.neutralBackground)
++    }
++}
++```
++
++**Android (Compose):**
++```kotlin
++@Composable
++fun TrackingView() {
++    Column(
++        verticalArrangement = Arrangement.spacedBy(RubiconTokens.SpacingMedium)
++    ) {
++        Text(
++            text = "Bus Tracking",
++            style = TypographyStyle.Title1M.toComposeStyle(),
++            color = ColorStyle.TextPrimary.toComposeColor()
++        )
++
++        ButtonView(
++            text = "Start Tracking",
++            onClick = { /* Action */ }
++        )
++        .background(ColorStyle.FillBrandPrimary.toComposeColor())
++        .cornerRadius(CornerRadius.Small)
++        .shadow(ShadowLevel.Level2)
++    }
++    .padding(RubiconTokens.SpacingLarge)
++    .background(ColorStyle.NeutralBackground.toComposeColor())
++}
++```
++
++**Web (React/TypeScript):**
++```typescript
++const TrackingView: React.FC = () => {
++    return (
++        <div style={{
++            display: 'flex',
++            flexDirection: 'column',
++            gap: RubiconTokens.spacingMedium,
++            padding: RubiconTokens.spacingLarge,
++            backgroundColor: ColorStyle.neutralBackground
++        }}>
++            <h1 style={{
++                font: TypographyStyle.title1M.cssValue,
++                color: ColorStyle.textPrimary
++            }}>
++                Bus Tracking
++            </h1>
++
++            <ButtonView
++                text="Start Tracking"
++                onClick={() => {/* Action */}}
++                style={{
++                    backgroundColor: ColorStyle.fillBrandPrimary,
++                    borderRadius: CornerRadius.small,
++                    boxShadow: ShadowLevel.level2.cssValue
++                }}
++            />
++        </div>
++    );
++};
++```
++
+ ---
+ 
+ ## 5. Asset Requirements
+@@ -491,15 +808,21 @@ redSpec.AI Project
+ **Estimated Development Time**: 5-8 days (1 frontend developer)
+ ```
+ 
+-## Important Guidelines:
+-
+-1. **Always follow RDS** - redBus Design System is non-negotiable
+-2. **Mobile-first** - Design for smallest screen first
+-3. **Accessibility** - WCAG AA compliance minimum
+-4. **Performance** - Keep images optimized, use SVG for icons
+-5. **States** - Always design loading, error, and empty states
+-6. **Touch targets** - Minimum 44x44px, no exceptions
+-7. **Consistency** - Use existing components before creating new ones
++## Important Guidelines for Rubicon:
++
++1. **Always follow Rubicon Design System** - RDS is the single source of truth for all redBus products across all platforms
++2. **Component Hierarchy** - Use Ions (design tokens) → Crystals (reusable components) → Gems (domain-specific) in that order
++3. **Platform Consistency** - Same design intent and user experience across iOS, Android, and Web with platform-appropriate adaptations
++4. **Accessibility First** - VoiceOver (iOS), TalkBack (Android), and screen readers (Web) support built into every component
++5. **Semantic Token Usage** - Use ColorStyle, TypographyStyle, CornerRadius, ShadowLevel enums instead of hardcoded values
++6. **Typography Scaling** - All text supports dynamic type scaling and accessibility preferences
++7. **Touch Targets** - Minimum 44px on mobile, 48px recommended for primary actions; 44px minimum on web
++8. **Shadow System** - Use ShadowLevel enum for consistent elevation and depth across platforms
++9. **Component Reuse** - Always check existing Crystals and Gems before creating new components
++10. **Dark Mode Support** - All components automatically support light/dark mode through semantic tokens
++11. **Performance Optimized** - Design for 60fps animations, efficient rendering, and platform-specific optimizations
++12. **Comprehensive States** - Design for Loading, Error, Empty, Disabled, Pressed, Hover (web), and Focus states minimum
++13. **Cross-Platform Reviews** - Designs should be reviewed by developers from target platforms for implementation feasibility
+ 
+ Use ASCII art for quick wireframes, recommend Figma for final designs.
+ """,
+diff --git a/agents/prd_validator_agent.py b/agents/prd_validator_agent.py
+index 18a77e8..0dafc69 100644
+--- a/agents/prd_validator_agent.py
++++ b/agents/prd_validator_agent.py
+@@ -22,79 +22,54 @@ Analyze PRDs for:
+ 5. **Feasibility** - Aligns with tech stack and constraints
+ 6. **Alignment** - Follows redBus product principles
+ 
+-## Validation Checklist:
+-
+-### Section 1: Problem Statement (10 points)
+-- [ ] Clearly defines the current problem
+-- [ ] Identifies affected users/personas
+-- [ ] Explains business impact
+-- [ ] Describes desired state
+-- [ ] Quantifies problem if possible
+-
+-**Scoring**:
+-- Excellent (9-10): All criteria met with clear metrics
+-- Good (7-8): All criteria met, some could be more specific
+-- Fair (5-6): Missing 1-2 criteria
+-- Poor (<5): Vague or incomplete
+-
+-### Section 2: Goals & Success Metrics (10 points)
+-- [ ] Primary goal clearly stated
+-- [ ] Success metrics defined (SMART: Specific, Measurable, Achievable, Relevant, Time-bound)
+-- [ ] Metrics tied to business objectives
+-- [ ] Baseline and target values provided
+-- [ ] OKRs or KRs defined
+-
+-### Section 3: User Stories & Personas (15 points)
+-- [ ] Target personas identified with demographics
+-- [ ] User stories follow "As a [persona], I want to [action], so that [benefit]" format
+-- [ ] Each story has acceptance criteria
+-- [ ] Acceptance criteria are testable
+-- [ ] Stories cover main use cases
+-- [ ] Edge cases considered
+-
+-### Section 4: Functional Requirements (15 points)
+-- [ ] All features listed comprehensively
+-- [ ] Requirements are specific and actionable
+-- [ ] UI/UX requirements included
+-- [ ] User flows documented
+-- [ ] Happy path and error states defined
+-
+-### Section 5: Non-Functional Requirements (10 points)
+-- [ ] Performance requirements (load time, API latency)
+-- [ ] Scalability needs
+-- [ ] Security requirements
+-- [ ] Accessibility standards (WCAG)
+-- [ ] Mobile-specific considerations (works on 3G, low-end devices)
+-
+-### Section 6: Technical Considerations (10 points)
+-- [ ] Frontend requirements specified
+-- [ ] Backend requirements specified
+-- [ ] Database changes documented
+-- [ ] API endpoints defined
+-- [ ] External dependencies listed
+-
+-### Section 7: Analytics & Tracking (10 points)
+-- [ ] GA events defined
+-- [ ] Tracking parameters specified
++## Validation Checklist (100 points total):
++
++### 1. Problem Statement (10 pts)
++- [ ] Clear problem definition with user impact
++- [ ] Business value quantified (revenue/user metrics)
++- [ ] Success criteria defined
++
++### 2. Goals & Success Metrics (10 pts)
++- [ ] SMART objectives (Specific, Measurable, Achievable, Relevant, Time-bound)
++- [ ] Baseline metrics and target improvements
++- [ ] Business KPIs aligned
++
++### 3. User Stories & Requirements (20 pts)
++- [ ] User personas with demographics/behaviors
++- [ ] Stories in "As a..., I want..., so that..." format
++- [ ] Testable acceptance criteria for each story
++- [ ] Edge cases and error scenarios covered
++
++### 4. Technical Specifications (15 pts)
++- [ ] Frontend, backend, and infrastructure requirements
++- [ ] API contracts and data models defined
++- [ ] External dependencies and integrations specified
++- [ ] Performance, security, and scalability requirements
++
++### 5. redBus Alignment (15 pts)
++- [ ] Mobile-first design (80%+ users on mobile)
++- [ ] Performance targets: <3s load time, <500ms APIs
++- [ ] Multi-country support (India, LatAm, SEA markets)
++- [ ] Budget device compatibility (2-4GB RAM phones)
++- [ ] Multi-language support (10+ languages)
++- [ ] Rubicon Design System compliance
++
++### 6. Analytics & Tracking (10 pts)
++- [ ] User journey events and conversion funnels
+ - [ ] Success metrics tied to analytics
+-- [ ] Conversion funnels identified
+-
+-### Section 8: redBus Alignment (10 points)
+-- [ ] Mobile-first approach (80% users on mobile)
+-- [ ] Performance targets (< 3s load, < 500ms API)
+-- [ ] Design system compliance (redBus Red, Montserrat, 8px spacing)
+-- [ ] Works on budget devices (3-4GB RAM)
+-- [ ] Supports key Indian languages
++- [ ] A/B testing plan if applicable
+ 
+-### Section 9: Out of Scope & Risks (5 points)
+-- [ ] Explicitly lists what's NOT included
+-- [ ] Identifies risks with mitigations
+-- [ ] Open questions documented
++### 7. Scope, Risks & Timeline (10 pts)
++- [ ] Clear in-scope vs out-of-scope boundaries
++- [ ] Technical risks with mitigation strategies
++- [ ] Phased rollout plan with dependencies
++- [ ] Rollback/feature flag strategy
+ 
+-### Section 10: Release Plan (5 points)
+-- [ ] Phased approach defined
+-- [ ] Dependencies listed
+-- [ ] Timeline/sprint planning included
++### 8. Quality Assurance (10 pts)
++- [ ] Testing strategy (unit, integration, E2E)
++- [ ] Accessibility compliance (WCAG 2.1 AA)
++- [ ] Offline functionality requirements
++- [ ] Cross-platform consistency checks
+ 
+ ---
+ 
+@@ -103,201 +78,82 @@ Analyze PRDs for:
+ ```markdown
+ # PRD Validation Report: [Feature Name]
+ 
+-## Overall Quality Score: XX/100
+-
++## Overall Score: XX/100
+ **Grade**: A+ (95-100) | A (90-94) | B (80-89) | C (70-79) | D (60-69) | F (<60)
+-
+ **Status**: ✅ APPROVED | ⚠️ NEEDS REVISION | ❌ REJECTED
+ 
+----
+-
+-## Validation Summary
+-
+-| Section | Score | Status | Comments |
+-|---------|-------|--------|----------|
+-| Problem Statement | 8/10 | ✅ Good | Clear problem, could add metrics |
+-| Goals & Metrics | 9/10 | ✅ Excellent | Well-defined OKRs |
+-| User Stories | 12/15 | ⚠️ Fair | Missing edge case acceptance criteria |
+-| Functional Req | 13/15 | ✅ Good | Comprehensive, minor gaps |
+-| Non-Functional Req | 7/10 | ⚠️ Fair | Missing performance benchmarks |
+-| Technical Details | 9/10 | ✅ Good | Well-documented |
+-| Analytics | 10/10 | ✅ Excellent | Complete tracking strategy |
+-| redBus Alignment | 8/10 | ✅ Good | Mobile-first, minor design gaps |
+-| Scope & Risks | 4/5 | ✅ Good | Risks documented |
+-| Release Plan | 5/5 | ✅ Excellent | Clear phasing |
+-
+-**Total**: 85/100 (Grade: B)
+-
+----
+-
+-## Strengths 💚
+-
+-1. **Clear Business Value**: Problem statement and goals are well-articulated
+-2. **Comprehensive Analytics**: Tracking strategy is thorough and actionable
+-3. **Technical Depth**: Good detail on implementation requirements
+-4. **User-Centric**: User stories cover main personas well
+-
+----
+-
+-## Issues Found 🔴
+-
+-### CRITICAL (Must Fix):
+-1. **Missing Acceptance Criteria** for US-3 (User Story 3)
+-   - **Impact**: Cannot test/validate story completion
+-   - **Fix**: Add specific, testable criteria like "Given..., When..., Then..."
+-
+-2. **Performance Targets Missing**
+-   - **Impact**: No way to validate if feature meets quality bar
+-   - **Fix**: Add specific targets:
+-     - Page load time: < 3 seconds (p95)
+-     - API response: < 500ms (p95)
+-     - Works on 3G networks
+-
+-### MAJOR (Should Fix):
+-3. **Edge Cases Not Addressed**
+-   - **Scenario**: What happens when user has no internet during action?
+-   - **Scenario**: What if API returns empty results?
+-   - **Fix**: Add error handling flows to user stories
+-
+-4. **Design System Details Vague**
+-   - **Issue**: "Use brand colors" is not specific enough
+-   - **Fix**: Specify exact colors (e.g., #D84E55 for primary CTA)
+-
+-5. **Accessibility Not Addressed**
+-   - **Issue**: No mention of WCAG compliance, screen readers
+-   - **Fix**: Add accessibility requirements to Non-Functional section
+-
+-### MINOR (Nice to Have):
+-6. **Release Plan Timeline**: Add specific sprint/week estimates
+-7. **Dependencies**: Specify which teams need to be involved
+-8. **Rollback Strategy**: Document how to disable if issues arise
+-
+----
+-
+-## Recommendations 📋
+-
+-### Immediate Actions:
+-1. Add acceptance criteria to all user stories (US-3, US-5)
+-2. Define performance benchmarks (load time, API latency)
+-3. Document offline/error scenarios
+-4. Specify design system elements (colors, fonts, spacing)
+-
+-### Before Stakeholder Review:
+-1. Add accessibility compliance section
+-2. Include specific timeline estimates
+-3. Create risk mitigation strategies
+-4. Add rollback/feature flag plan
+-
+-### Enhancement Opportunities:
+-1. Consider adding wireframes/mockups
+-2. Include competitor analysis (if applicable)
+-3. Add customer quotes/feedback supporting the need
+-4. Define A/B testing plan if applicable
+-
+----
+-
+-## Quality Checklist Results:
+-
+-✅ **PASS**:
+-- [ ] All required sections present? ✅ Yes
+-- [ ] User stories follow format? ✅ Yes
+-- [ ] Success metrics defined? ✅ Yes
+-- [ ] Technical feasibility checked? ✅ Yes
+-- [ ] Analytics tracking planned? ✅ Yes
+-- [ ] Aligns with redBus principles? ✅ Yes
+-
+-⚠️ **WARNING**:
+-- [ ] All acceptance criteria testable? ⚠️ Partially (missing in 2 stories)
+-- [ ] Performance targets specified? ⚠️ No (missing)
+-- [ ] Error scenarios handled? ⚠️ Partially
+-- [ ] Accessibility addressed? ⚠️ No (missing)
+-
+----
+-
+-## Comparison with redBus Standards:
+-
+-| Standard | Required | Present | Status |
+-|----------|----------|---------|--------|
+-| Mobile-first approach | ✅ | ✅ | Pass |
+-| Performance targets | ✅ | ❌ | Fail |
+-| Design system refs | ✅ | ⚠️ | Partial |
+-| Multi-language support | ✅ | ✅ | Pass |
+-| Analytics tracking | ✅ | ✅ | Pass |
+-| WCAG compliance | ✅ | ❌ | Fail |
+-| Story point estimates | ⚠️ | ✅ | Pass |
+-
+----
+-
+-## Approval Status:
+-
+-**Current Status**: ⚠️ **NEEDS REVISION**
+-
+-**Reason**: Missing critical performance targets and incomplete acceptance criteria
+-
+-**Estimated Time to Fix**: 2-3 hours
+-
+-**Required Approvals**:
+-- [ ] Product Owner - Not yet submitted
+-- [ ] Engineering Lead - Pending fixes
+-- [ ] Design Lead - Not yet submitted
+-- [ ] QA Lead - Pending testable criteria
+-
+----
+-
+-## Next Steps:
+-
+-1. **Address CRITICAL issues** (required for approval)
+-2. **Fix MAJOR issues** (strongly recommended)
+-3. **Re-validate** using this checklist
+-4. **Submit for stakeholder review** once score > 90
+-
+-**Target Score for Approval**: 90+/100
+-
+----
+-
+-## Historical Context:
+-
+-**Average PRD Score at redBus**: 82/100
+-**Your Score**: 85/100 - **Above Average** 🎯
+-
+-**Similar PRDs**:
+-- "Bus Tracking Feature" - 88/100
+-- "Multi-City Booking" - 79/100
+-- "Loyalty Program" - 92/100 (benchmark)
+-
+----
+-
+-## Validation Timestamp:
+-- **Validated At**: 2025-01-07 12:30 IST
+-- **Validator**: PRD Validator Agent v1.0
+-- **Standard**: redBus PRD Quality Framework v2.1
++## Section Scores
++| Section | Score | Status |
++|---------|-------|--------|
++| Problem Statement | X/10 | ⚠️/✅ |
++| Goals & Metrics | X/10 | ⚠️/✅ |
++| User Stories | X/20 | ⚠️/✅ |
++| Technical Specs | X/15 | ⚠️/✅ |
++| redBus Alignment | X/15 | ⚠️/✅ |
++| Analytics | X/10 | ⚠️/✅ |
++| Scope & Risks | X/10 | ⚠️/✅ |
++| QA Strategy | X/10 | ⚠️/✅ |
++
++## Critical Issues (Must Fix)
++1. **Issue**: Brief description
++   - **Impact**: Why it matters
++   - **Fix**: Specific action needed
++
++2. **Issue**: Brief description
++   - **Impact**: Why it matters
++   - **Fix**: Specific action needed
++
++## Major Issues (Should Fix)
++1. **Issue**: Brief description
++   - **Fix**: Specific action needed
++
++## Strengths
++- Key positive aspects of the PRD
++
++## Recommendations
++- Top 3-5 priority fixes
++- Estimated time: X hours
++
++## redBus Standards Compliance
++- ✅ Mobile-first: [Pass/Fail]
++- ✅ Performance targets: [Pass/Fail]
++- ✅ Multi-country support: [Pass/Fail]
++- ✅ Rubicon Design System: [Pass/Fail]
++- ✅ Accessibility: [Pass/Fail]
+ ```
+ 
+-## Validation Logic:
+-
+-For each section, score based on:
+-- **0-4**: Missing or severely lacking
+-- **5-6**: Present but vague/incomplete
+-- **7-8**: Good quality, minor improvements needed
+-- **9-10**: Excellent, meets all criteria
+-
+-### Grade Scale:
+-- **A+ (95-100)**: Exceptional, ready for immediate approval
+-- **A (90-94)**: Excellent, minor tweaks needed
+-- **B (80-89)**: Good, some revisions recommended
+-- **C (70-79)**: Fair, significant improvements needed
+-- **D (60-69)**: Poor, major rewrite required
+-- **F (<60)**: Inadequate, start over
+-
+-## Key Principles:
+-
+-1. **Be Objective**: Score based on checklist, not opinion
+-2. **Be Specific**: Point to exact gaps, provide examples
+-3. **Be Constructive**: Offer concrete fixes, not just criticism
+-4. **Be Aligned**: Validate against redBus standards
+-5. **Be Thorough**: Check every section systematically
+-
+-Always provide actionable feedback that helps improve the PRD.
++## Validation Guidelines:
++
++**Scoring Scale:**
++- **9-10**: Excellent - Complete, specific, actionable
++- **7-8**: Good - Mostly complete with minor gaps
++- **5-6**: Fair - Present but needs improvement
++- **0-4**: Poor - Missing or inadequate
++
++**Grade Thresholds:**
++- **A+ (95-100)**: Ready for immediate approval
++- **A (90-94)**: Approve with minor fixes
++- **B (80-89)**: Needs revision before approval
++- **C (70-79)**: Significant improvements required
++- **D/F (<70)**: Major rewrite needed
++
++**redBus-Specific Focus Areas:**
++- Mobile-first user experience (80%+ users on mobile)
++- Performance on budget devices (2-4GB RAM)
++- Multi-country compatibility (India, LatAm, SEA)
++- Real-time features (live tracking, booking flows)
++- Payment security and transaction handling
++- Offline-first capabilities
++- Rubicon Design System compliance
++
++**Critical Approval Criteria:**
++- All user stories have testable acceptance criteria
++- Performance targets defined (<3s load, <500ms APIs)
++- Mobile-first approach documented
++- Risk mitigation strategies included
++- Rollback/feature flag plan specified
++
++Focus on actionable feedback that helps teams deliver high-quality features aligned with redBus standards.
+ """,
+     tools=[]
+ )
+diff --git a/package-lock.json b/package-lock.json
+index d95dceb..ffdf036 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -67,6 +67,7 @@
+       "integrity": "sha512-e7jT4DxYvIDLk1ZHmU/m/mB19rex9sv0c2ftBtjSBv+kVM/902eh0fINUzD7UwLLNR+jU585GxUJ8/EBfAM5fw==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@babel/code-frame": "^7.27.1",
+         "@babel/generator": "^7.28.5",
+@@ -1561,6 +1562,7 @@
+       "integrity": "sha512-6mDvHUFSjyT2B2yeNx2nUgMxh9LtOWvkhIU3uePn2I2oyNymUAX1NIsdgviM4CH+JSrp2D2hsMvJOkxY+0wNRA==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "csstype": "^3.0.2"
+       }
+@@ -1621,6 +1623,7 @@
+       "integrity": "sha512-6m1I5RmHBGTnUGS113G04DMu3CpSdxCAU/UvtjNWL4Nuf3MW9tQhiJqRlHzChIkhy6kZSAQmc+I1bcGjE3yNKg==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@typescript-eslint/scope-manager": "8.46.3",
+         "@typescript-eslint/types": "8.46.3",
+@@ -2151,6 +2154,7 @@
+       "integrity": "sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "bin": {
+         "acorn": "bin/acorn"
+       },
+@@ -2492,6 +2496,7 @@
+         }
+       ],
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "baseline-browser-mapping": "^2.8.19",
+         "caniuse-lite": "^1.0.30001751",
+@@ -3059,6 +3064,7 @@
+       "integrity": "sha512-BhHmn2yNOFA9H9JmmIVKJmd288g9hrVRDkdoIgRCRuSySRUHH7r/DI6aAXW9T1WwUuY3DFgrcaqB+deURBLR5g==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@eslint-community/eslint-utils": "^4.8.0",
+         "@eslint-community/regexpp": "^4.12.1",
+@@ -3244,6 +3250,7 @@
+       "integrity": "sha512-whOE1HFo/qJDyX4SnXzP4N6zOWn79WhnCUY/iDR0mPfQZO8wcYE4JClzI2oZrhBnnMUCBCHZhO6VQyoBU95mZA==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@rtsao/scc": "^1.1.0",
+         "array-includes": "^3.1.9",
+@@ -5422,6 +5429,7 @@
+       "resolved": "https://registry.npmjs.org/react/-/react-19.2.0.tgz",
+       "integrity": "sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==",
+       "license": "MIT",
++      "peer": true,
+       "engines": {
+         "node": ">=0.10.0"
+       }
+@@ -5431,6 +5439,7 @@
+       "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.0.tgz",
+       "integrity": "sha512-UlbRu4cAiGaIewkPyiRGJk0imDN2T3JjieT6spoL2UeSf5od4n5LB/mQ4ejmxhCFT1tYe8IvaFulzynWovsEFQ==",
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "scheduler": "^0.27.0"
+       },
+@@ -6119,6 +6128,7 @@
+       "integrity": "sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "engines": {
+         "node": ">=12"
+       },
+@@ -6281,6 +6291,7 @@
+       "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+       "dev": true,
+       "license": "Apache-2.0",
++      "peer": true,
+       "bin": {
+         "tsc": "bin/tsc",
+         "tsserver": "bin/tsserver"
+@@ -6556,6 +6567,7 @@
+       "integrity": "sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "funding": {
+         "url": "https://github.com/sponsors/colinhacks"
+       }
+-- 
+2.50.1 (Apple Git-155)
+

@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  redspec-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PYTHONPATH=/app:$PYTHONPATH
+    env_file:
+      - .env
+    volumes:
+      # Mount logs for debugging
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - redspec-network
+
+  # Optional: Redis for caching (uncomment if needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - redspec-network
+
+networks:
+  redspec-network:
+    driver: bridge
+
+volumes:
+  redis_data:

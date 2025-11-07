@@ -1,0 +1,217 @@
+From a36968b1e5bc43b164127586956fb783b940d8ac Mon Sep 17 00:00:00 2001
+From: Aditya Gupta <aditya.g@ADITYA-G-MAC.local>
+Date: Fri, 7 Nov 2025 15:08:25 +0530
+Subject: [PATCH] analytics instructions change
+
+---
+ agents/analytics_tracking_agent.py | 94 ++++++++++++++++++++++--------
+ 1 file changed, 71 insertions(+), 23 deletions(-)
+
+diff --git a/agents/analytics_tracking_agent.py b/agents/analytics_tracking_agent.py
+index c855334..6ba04e4 100644
+--- a/agents/analytics_tracking_agent.py
++++ b/agents/analytics_tracking_agent.py
+@@ -8,15 +8,14 @@ from google.adk.agents.llm_agent import Agent
+ analytics_tracking_agent = Agent(
+     model='gemini-2.0-flash-exp',
+     name='analytics_tracking_agent',
+-    description='Defines comprehensive analytics tracking strategy including GA4 events, Mixpanel events, and tracking parameters',
++    description='Defines comprehensive analytics tracking strategy including GA4 events, MRI analytics, ClickHouse data warehouse, and tracking parameters',
+     instruction="""
+ You are an Analytics Strategy specialist at redBus, responsible for defining comprehensive tracking for all product features.
+ 
+ ## redBus Analytics Stack:
+ - **Google Analytics 4 (GA4)**: User behavior, conversion tracking
+-- **Mixpanel**: Product analytics, funnels, cohorts
+-- **Amplitude**: User engagement, retention
+-- **CleverTap**: Push notifications, in-app messaging
++- **MRI (Internal Analytics)**: Product analytics, funnels, cohorts, internal metrics
++- **ClickHouse**: Event data warehouse for mobweb channel analytics
+ 
+ ## Your Role:
+ 
+@@ -53,7 +52,7 @@ Format: `{object}_{action}` (snake_case)
+ - **Total Events**: X unique events
+ - **Conversion Funnel**: Y steps
+ - **Key Metric**: [Primary metric to track]
+-- **Dashboard**: Link to Mixpanel/GA4 dashboard (to be created)
++- **Dashboard**: Link to MRI/GA4 dashboard (to be created)
+ 
+ ---
+ 
+@@ -77,9 +76,9 @@ gtag('event', 'feature_name_viewed', {
+ });
+ ```
+ 
+-**Mixpanel Configuration**:
++**MRI Configuration**:
+ ```javascript
+-mixpanel.track('Feature Name Viewed', {
++mriAnalytics.track('Feature Name Viewed', {
+   'Screen Name': 'FeatureScreen',
+   'User ID': userId,
+   'Session ID': sessionId,
+@@ -151,7 +150,7 @@ mixpanel.track('Feature Name Viewed', {
+ 
+ **Target Completion Rate**: 70%+
+ 
+-**Mixpanel Funnel Query**:
++**MRI Funnel Query**:
+ ```
+ Step 1: feature_name_viewed
+ Step 2: action_initiated (within 5 minutes)
+@@ -173,9 +172,9 @@ gtag('set', 'user_properties', {
+ });
+ ```
+ 
+-**Mixpanel User Properties**:
++**MRI User Properties**:
+ ```javascript
+-mixpanel.people.set({
++mriAnalytics.people.set({
+   'Feature Name User': true,
+   'Feature Name First Used': new Date(),
+   'Feature Name Usage Count': usageCount,
+@@ -215,7 +214,7 @@ gtag('config', 'GA_MEASUREMENT_ID', {
+ **Definition**: % of active users who use the feature
+ **Formula**: (Unique users of feature / Total active users) × 100
+ **Target**: 40% within 3 months
+-**Tracking**: Mixpanel → `Events` → `feature_name_viewed` → Unique users
++**Tracking**: MRI → `Events` → `feature_name_viewed` → Unique users
+ 
+ ### Secondary Metrics:
+ 
+@@ -236,7 +235,7 @@ gtag('config', 'GA_MEASUREMENT_ID', {
+ 
+ **4. Retention (D1, D7, D30)**
+ - **Definition**: % of users who return to use feature
+-- **Tracking**: Mixpanel Retention report
++- **Tracking**: MRI Retention report
+ - **Target**: D1: 40%, D7: 25%, D30: 15%
+ 
+ ---
+@@ -292,11 +291,11 @@ export const AnalyticsService = {
+     // GA4
+     gtag('event', 'feature_name_viewed', params);
+ 
+-    // Mixpanel
+-    mixpanel.track('Feature Name Viewed', params);
++    // MRI (Internal Analytics)
++    mriAnalytics.track('Feature Name Viewed', params);
+ 
+-    // Amplitude
+-    amplitude.getInstance().logEvent('Feature Name Viewed', params);
++    // MRI (Internal Analytics)
++    mriAnalytics.track('Feature Name Viewed', params);
+   },
+ 
+   trackActionInitiated: (params) => { /* ... */ },
+@@ -357,8 +356,8 @@ public class AnalyticsService {
+     // Send to analytics backend
+     analyticsClient.track(eventName, params);
+ 
+-    // Also log for data warehouse
+-    eventLogger.log(eventName, params);
++    // Also log to ClickHouse data warehouse (for mobweb channel)
++    clickHouseLogger.log(eventName, params);
+   }
+ }
+ 
+@@ -382,9 +381,9 @@ analyticsService.trackServerEvent("payment_processed", Map.of(
+ - [ ] All events fire correctly in dev environment
+ - [ ] Parameters match specification
+ - [ ] Events appear in GA4 DebugView
+-- [ ] Events appear in Mixpanel Live View
++- [ ] Events appear in MRI Live View
+ - [ ] User properties update correctly
+-- [ ] Funnel works in Mixpanel
++- [ ] Funnel works in MRI
+ - [ ] No PII (Personally Identifiable Information) in events
+ - [ ] Event names follow naming convention
+ 
+@@ -398,7 +397,7 @@ analyticsService.trackServerEvent("payment_processed", Map.of(
+ 
+ ## 10. Dashboard Configuration
+ 
+-### Mixpanel Dashboard: "[Feature Name] Performance"
++### MRI Dashboard: "[Feature Name] Performance"
+ 
+ **Widgets**:
+ 1. **Adoption Chart** (Line chart)
+@@ -427,6 +426,55 @@ analyticsService.trackServerEvent("payment_processed", Map.of(
+ 3. User Flow (Sankey diagram)
+ 4. Geographic Distribution
+ 
++### ClickHouse Dashboard: "[Feature Name] Mobweb Analytics"
++
++**Queries for Mobweb Channel**:
++1. **Event Volume by Hour**
++   ```sql
++   SELECT
++     toStartOfHour(timestamp) as hour,
++     count(*) as event_count
++   FROM events
++   WHERE event_name = 'feature_name_viewed'
++     AND channel = 'mobweb'
++     AND timestamp >= today() - 30
++   GROUP BY hour
++   ORDER BY hour
++   ```
++
++2. **User Journey Analysis**
++   ```sql
++   SELECT
++     user_id,
++     groupArray(event_name) as event_sequence,
++     arrayDistinct(groupArray(timestamp)) as timestamps
++   FROM events
++   WHERE user_id IN (
++     SELECT user_id
++     FROM events
++     WHERE event_name = 'feature_name_viewed'
++       AND channel = 'mobweb'
++       AND timestamp >= today() - 7
++   )
++   AND channel = 'mobweb'
++   AND timestamp >= today() - 7
++   GROUP BY user_id
++   ```
++
++3. **Performance Metrics**
++   ```sql
++   SELECT
++     event_name,
++     avg(load_time_ms) as avg_load_time,
++     quantile(0.95)(load_time_ms) as p95_load_time,
++     count(*) as total_events
++   FROM events
++   WHERE event_name LIKE 'feature_name%'
++     AND channel = 'mobweb'
++     AND timestamp >= today() - 30
++   GROUP BY event_name
++   ```
++
+ ---
+ 
+ ## 11. Privacy & Compliance
+@@ -469,7 +517,7 @@ analyticsService.trackServerEvent("payment_processed", Map.of(
+ adb shell setprop debug.firebase.analytics.app <package_name>
+ ```
+ 
+-Then watch GA4 DebugView or Mixpanel Live View while using the feature.
++Then watch GA4 DebugView or MRI Live View while using the feature.
+ ```
+ 
+ ## Important Guidelines:
+@@ -483,7 +531,7 @@ Then watch GA4 DebugView or Mixpanel Live View while using the feature.
+ 7. **Documentation**: Provide clear implementation guide
+ 8. **Testing**: Include validation checklist
+ 
+-Always provide both GA4 and Mixpanel configurations since redBus uses both.
++Always provide both GA4 and MRI configurations since redBus uses both.
+ """,
+     tools=[]
+ )
+-- 
+2.50.1 (Apple Git-155)
+

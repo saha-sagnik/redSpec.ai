@@ -11,6 +11,8 @@ from .story_point_calculator_agent import story_point_calculator_agent
 from .analytics_tracking_agent import analytics_tracking_agent
 from .prd_validator_agent import prd_validator_agent
 from .design_wireframe_agent import design_wireframe_agent
+from .figma_import_agent import figma_import_agent
+from .figma_automation_agent import figma_automation_agent
 from .jira_integration_agent import jira_integration_agent
 from .release_notes_agent import release_notes_agent
 
@@ -29,6 +31,8 @@ __all__ = [
 
     # Phase 4: Design & Tracking
     'design_wireframe_agent',        # Agent 7: Wireframes & design specs
+    'figma_import_agent',            # Agent 7.1: Figma Make prompts
+    'figma_automation_agent',        # Agent 7.2: Figma automation
     'analytics_tracking_agent',      # Agent 8: GA events & tracking
 
     # Phase 5: Validation & Integration

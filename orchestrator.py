@@ -24,6 +24,8 @@ from agents import (
     code_impact_agent,
     story_point_calculator_agent,
     design_wireframe_agent,
+    figma_import_agent,
+    figma_automation_agent,
     analytics_tracking_agent,
     prd_validator_agent,
     jira_integration_agent,
@@ -71,6 +73,7 @@ class WorkflowResult:
 
     # Phase 4 outputs
     design_specs: Optional[str] = None
+    figma_files: Optional[str] = None
     analytics_plan: Optional[str] = None
 
     # Phase 5 outputs
@@ -106,6 +109,8 @@ class RedSpecOrchestrator:
 
             # Phase 4: Design & Tracking
             "design": InMemoryRunner(agent=design_wireframe_agent),
+            "figma_import": InMemoryRunner(agent=figma_import_agent),
+            "figma_automation": InMemoryRunner(agent=figma_automation_agent),
             "analytics": InMemoryRunner(agent=analytics_tracking_agent),
 
             # Phase 5: Validation & Integration
@@ -389,6 +394,69 @@ Generate wireframes and design specifications aligned with redBus Design System.
                 except Exception as e:
                     result.errors.append(f"Design generation error: {str(e)}")
 
+                # Agent 7.1: Figma Make Integration
+                try:
+                    if result.design_specs:
+                        figma_make_prompt = f"""
+Based on the design specifications generated, create optimized prompts for Figma Make AI wireframe generator.
+
+Design Specs:
+{result.design_specs}
+
+For each screen described, generate a natural language prompt that can be pasted directly into Figma Make to generate professional wireframes.
+
+Include step-by-step instructions for using Figma Make and adding the resulting links back to the PRD.
+
+Focus on creating prompts that will generate high-quality, modern mobile interfaces aligned with redBus design principles.
+"""
+                        figma_result = await self.run_agent(
+                            "figma_import",
+                            figma_make_prompt,
+                            progress_callback
+                        )
+
+                        # Agent 7.2: Figma Automation (if prompts generated successfully)
+                        if figma_result and "figma_make_prompt" in str(figma_result):
+                            try:
+                                automation_prompt = f"""
+Using the generated Figma Make prompt, automatically generate the actual Figma design.
+
+Figma Prompt: {figma_result.get('figma_make_prompt', '')}
+
+Use browser automation to:
+1. Open Figma Make
+2. Paste the prompt
+3. Generate the design
+4. Extract the design link and screenshot
+5. Return the results for PRD integration
+
+This should give us actual Figma design links and screenshots instead of just prompts.
+"""
+                                automation_result = await self.run_agent(
+                                    "figma_automation",
+                                    automation_prompt,
+                                    progress_callback
+                                )
+
+                                # Combine results
+                                result.figma_files = {
+                                    "prompts": figma_result,
+                                    "automated_designs": automation_result
+                                }
+                            except Exception as automation_error:
+                                result.figma_files = {
+                                    "prompts": figma_result,
+                                    "automation_error": str(automation_error),
+                                    "note": "Prompts generated successfully, but automation failed. Use manual Figma Make workflow."
+                                }
+                        else:
+                            result.figma_files = figma_result
+                    else:
+                        result.figma_files = "Design specs not available for Figma Make integration"
+                except Exception as e:
+                    result.errors.append(f"Figma integration error: {str(e)}")
+                    result.figma_files = f"Figma integration failed: {str(e)}"
+
                 # Agent 8: Analytics Tracking
                 try:
                     analytics_prompt = f"""
@@ -534,6 +602,10 @@ Create complete JIRA ticket structure including epic, stories, tasks, and sub-ta
             if result.design_specs:
                 with open(f"{output_dir}/design_specs_{timestamp}.md", "w") as f:
                     f.write(result.design_specs)
+
+            if result.figma_files:
+                with open(f"{output_dir}/figma_files_{timestamp}.md", "w") as f:
+                    f.write(result.figma_files)
 
             if result.analytics_plan:
                 with open(f"{output_dir}/analytics_{timestamp}.md", "w") as f:
