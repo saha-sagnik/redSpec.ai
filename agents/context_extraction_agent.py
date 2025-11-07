@@ -4,13 +4,16 @@ Loads and provides company-specific context (redBus knowledge, design principles
 """
 
 from google.adk.agents.llm_agent import Agent
-from google.adk.tools import Tool
+from google.adk.tools import FunctionTool
 import json
 import os
 
 # Load company context
-def load_company_context() -> str:
-    """Load redBus company context from knowledge base"""
+def get_company_context() -> str:
+    """Retrieve redBus company context including product principles, tech stack, design system, and business constraints.
+    
+    Loads company context from the knowledge base JSON file.
+    """
     context_path = os.path.join(os.path.dirname(__file__), '..', 'knowledge', 'redbus_context.json')
     try:
         with open(context_path, 'r') as f:
@@ -20,11 +23,7 @@ def load_company_context() -> str:
         return f"Error loading context: {e}"
 
 # Create tool for accessing company context
-company_context_tool = Tool(
-    name="get_company_context",
-    function=load_company_context,
-    description="Retrieve redBus company context including product principles, tech stack, design system, and business constraints"
-)
+company_context_tool = FunctionTool(get_company_context)
 
 # Context Extraction Agent
 context_extraction_agent = Agent(

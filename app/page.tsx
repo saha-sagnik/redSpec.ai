@@ -48,28 +48,46 @@ export default function Home() {
     setIsLoading(true);
 
     try {
+      console.log('[FRONTEND] Sending message:', input);
+      console.log('[FRONTEND] Conversation history:', messages.length, 'messages');
+      
       // Call chat API
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: input,
+          conversationHistory: messages,
           githubRepo: githubRepo || undefined,
         }),
       });
 
+      console.log('[FRONTEND] Response status:', response.status);
       const data = await response.json();
+      console.log('[FRONTEND] Response data:', data);
 
       if (data.success && data.message) {
         setMessages((prev) => [...prev, data.message]);
+      } else {
+        // Show error message from backend
+        const errorMsg = data.error || 'Unknown error occurred';
+        const errorDetails = data.details ? `\n\nDetails: ${data.details}` : '';
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `❌ Error: ${errorMsg}${errorDetails}`,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('[FRONTEND] Error sending message:', error);
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, I encountered an error. Please try again.',
+          content: `❌ Network Error: ${error instanceof Error ? error.message : 'Failed to connect to server. Please check the console for details.'}`,
           timestamp: new Date().toISOString(),
         },
       ]);

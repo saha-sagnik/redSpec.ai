@@ -4,33 +4,32 @@ Fetches, indexes, and provides access to real GitHub repositories
 """
 
 from google.adk.agents.llm_agent import Agent
-from google.adk.tools import Tool
+from google.adk.tools import FunctionTool
 import sys
 import os
 
 # Add tools directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from tools.github_tool import fetch_github_repo, search_codebase, read_code_file
+from tools.github_tool import fetch_github_repo as _fetch_github_repo, search_codebase as _search_codebase, read_code_file as _read_code_file
+
+# Create wrapper functions for tools
+def fetch_github_repository(repo_url: str, branch: str = "main") -> str:
+    """Clone and index a GitHub repository. Provide the full GitHub URL (e.g., https://github.com/user/repo)"""
+    return _fetch_github_repo(repo_url, branch)
+
+def search_in_codebase(repo_name: str, search_term: str) -> str:
+    """Search for a term in the cloned codebase. Provide repo_name and search_term"""
+    return _search_codebase(repo_name, search_term)
+
+def read_code_file(repo_name: str, file_path: str) -> str:
+    """Read a specific file from the codebase. Provide repo_name and file_path"""
+    return _read_code_file(repo_name, file_path)
 
 # Create tools for codebase operations
-fetch_repo_tool = Tool(
-    name="fetch_github_repository",
-    function=fetch_github_repo,
-    description="Clone and index a GitHub repository. Provide the full GitHub URL (e.g., https://github.com/user/repo)"
-)
-
-search_code_tool = Tool(
-    name="search_in_codebase",
-    function=search_codebase,
-    description="Search for a term in the cloned codebase. Provide repo_name and search_term"
-)
-
-read_file_tool = Tool(
-    name="read_code_file",
-    function=read_code_file,
-    description="Read a specific file from the codebase. Provide repo_name and file_path"
-)
+fetch_repo_tool = FunctionTool(fetch_github_repository)
+search_code_tool = FunctionTool(search_in_codebase)
+read_file_tool = FunctionTool(read_code_file)
 
 # Codebase Fetcher Agent
 codebase_fetcher_agent = Agent(
