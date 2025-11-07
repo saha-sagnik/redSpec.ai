@@ -52,10 +52,12 @@ Use `search_in_codebase` to find:
 - UI components
 
 **Example searches:**
-- "TrackingService" → Find tracking-related code
-- "BookingController" → Find booking logic
-- "PaymentGateway" → Find payment integration
-- "UserProfile" → Find user management
+- "TrackingService" → Find tracking-related services
+- "BookingService" → Find booking management logic
+- "PaymentService" → Find payment processing
+- "SearchService" → Find search and results functionality
+- "NotificationService" → Find notification systems
+- "LocationService" → Find location/gps related code
 
 ### Step 3: Read and Analyze Files
 Use `read_code_file` to examine:
@@ -83,34 +85,35 @@ Produce a detailed analysis with this structure:
 
 ### Backend Services
 
-#### Component: [Service Name]
-- **File**: `path/to/ServiceName.java`
-- **Lines**: 42, 67-89, 145
+#### Component: Tracking Service
+- **File**: `src/services/TrackingService.java` (or equivalent in your tech stack)
+- **Lines**: 25, 67-89, 145
 - **Impact Level**: HIGH
 - **Changes Needed**:
-  - Add new method `trackBusLocation()`
-  - Modify existing `getBookingDetails()` to include tracking info
-  - Add WebSocket connection handler
+  - Add new method `startLocationTracking()`
+  - Modify existing `getTrackingStatus()` to include real-time updates
+  - Add WebSocket/real-time connection handler
 - **Dependencies Affected**:
   - NotificationService (needs to send tracking updates)
-  - DatabaseService (new tables for location data)
-- **Risk**: Medium - Changes core booking flow
+  - BookingService (core booking operations integration)
+- **Risk**: Medium - Extends existing tracking feature
 
 #### Component: [Another Service]
 ...
 
 ### Frontend Components
 
-#### Component: [Component Name]
-- **File**: `app/components/BusTracking.tsx`
+#### Component: Tracking UI Component
+- **File**: `src/components/TrackingComponent.tsx` (or equivalent in your tech stack)
 - **Impact Level**: HIGH
 - **Changes Needed**:
-  - NEW FILE - Create real-time tracking UI
-  - Integrate with WebSocket
-  - Add map component using Google Maps API
+  - Extend existing tracking component with real-time location updates
+  - Add WebSocket/real-time integration for live position updates
+  - Enhance map interface with real-time marker updates
 - **Dependencies**:
-  - react-native-maps
-  - socket.io-client
+  - TrackingService (for location data)
+  - Map component (existing UI components)
+  - Real-time connection library
 
 ### Database Changes
 
@@ -134,14 +137,18 @@ CREATE TABLE bus_locations (
 ### API Changes
 
 #### New Endpoints
-- **POST /api/v1/tracking/start**
-  - Purpose: Initiate tracking for a booking
-  - Request: `{ "booking_id": "123", "user_id": "456" }`
-  - Response: `{ "tracking_id": "abc", "websocket_url": "..." }`
+- **POST /api/v1/bus-tracking/start**
+  - Purpose: Initiate real-time tracking for a bus booking
+  - Request: `{ "booking_id": "RB123456", "pax_id": "PAX789", "bus_service_id": "YB001" }`
+  - Response: `{ "tracking_session_id": "TS_ABC123", "websocket_url": "wss://tracking.redbus.com/live", "estimated_duration": 480 }`
 
-- **GET /api/v1/tracking/:tracking_id/location**
-  - Purpose: Get current bus location
-  - Response: `{ "latitude": 12.34, "longitude": 56.78, "timestamp": "..." }`
+- **GET /api/v1/bus-tracking/{tracking_session_id}/location**
+  - Purpose: Get current bus location and ETA
+  - Response: `{ "latitude": 12.9716, "longitude": 77.5946, "speed_kmh": 65.5, "eta_minutes": 45, "last_updated": "2024-01-15T10:30:00Z" }`
+
+- **WebSocket: /ws/v1/bus-tracking/{tracking_session_id}**
+  - Purpose: Real-time location updates
+  - Message: `{ "type": "location_update", "latitude": 12.9716, "longitude": 77.5946, "timestamp": "2024-01-15T10:30:00Z" }`
 
 #### Modified Endpoints
 - **GET /api/v1/bookings/:id**
@@ -176,65 +183,68 @@ CREATE TABLE bus_locations (
 
 ### High Impact Files (Requires significant changes)
 
-1. **`app/services/BookingService.java` (Lines: 89, 145-167)**
-   - **Current Implementation**: Handles booking creation and management
+1. **`src/services/TrackingService.java` (Lines: 25, 67-89)**
+   - **Current Implementation**: Manages tracking sessions and business logic
    - **Required Changes**:
-     - Add tracking initiation logic
-     - Store tracking preferences
-     - Link booking to tracking session
-   - **Complexity**: 8 story points
-   - **Risk**: High - Core service
+     - Add real-time connection management
+     - Implement location update broadcasting
+     - Add session lifecycle management (start/stop/pause)
+   - **Complexity**: 13 story points
+   - **Risk**: High - Core tracking functionality
 
-2. **`app/controllers/BookingController.java` (Lines: 45, 78-92)**
-   - **Current Implementation**: REST API endpoints for bookings
+2. **`src/controllers/TrackingController.js` (Lines: 45, 78-92)**
+   - **Current Implementation**: API endpoints for tracking operations
    - **Required Changes**:
-     - Add new tracking endpoints
-     - Modify booking response to include tracking info
-   - **Complexity**: 5 story points
-   - **Risk**: Medium
+     - Add real-time endpoints
+     - Implement WebSocket/real-time event handling
+     - Add connection management endpoints
+   - **Complexity**: 8 story points
+   - **Risk**: Medium - API enhancements
 
 ### Medium Impact Files (Moderate changes)
 
-3. **`app/models/Booking.java` (Lines: 12-25)**
-   - **Current Implementation**: Booking entity model
+3. **`src/models/SearchResponse.java` (Lines: 12-25)**
+   - **Current Implementation**: Search results data model
    - **Required Changes**:
-     - Add trackingEnabled field
-     - Add relationship to TrackingSession
-   - **Complexity**: 2 story points
-   - **Risk**: Low
+     - Add tracking availability flag
+     - Include real-time status indicators
+   - **Complexity**: 3 story points
+   - **Risk**: Low - Backward compatible changes
 
 ### New Files Required
 
-4. **`app/services/TrackingService.java` (NEW)**
-   - **Purpose**: Handle all tracking-related business logic
+4. **`src/services/RealTimeTrackingService.java` (NEW)**
+   - **Purpose**: Handle real-time location tracking business logic
    - **Key Methods**:
-     - `startTracking(bookingId)`
+     - `startRealTimeTracking(bookingId)`
      - `updateLocation(trackingId, location)`
-     - `getTrackingInfo(trackingId)`
+     - `getActiveTrackingSessions()`
      - `stopTracking(trackingId)`
    - **Complexity**: 13 story points
-   - **Risk**: Medium
+   - **Risk**: Medium - New service extending existing tracking
 
-5. **`app/websocket/TrackingWebSocketHandler.java` (NEW)**
-   - **Purpose**: WebSocket connection handler
-   - **Complexity**: 8 story points
+5. **`src/controllers/RealTimeTrackingController.js` (NEW)**
+   - **Purpose**: API endpoints for real-time tracking operations
+   - **Complexity**: 5 story points
+   - **Risk**: Low - Follows existing API patterns
 
-6. **`frontend/components/BusTracking.tsx` (NEW)**
-   - **Purpose**: Real-time tracking UI
+6. **`src/components/RealTimeMapComponent.tsx` (NEW)**
+   - **Purpose**: Real-time map UI component with live location markers
    - **Complexity**: 8 story points
+   - **Risk**: Low - UI component following existing patterns
 
 ## 3. Architecture Changes
 
 ### New Components
-- **TrackingService**: New microservice (or service within monolith)
-- **WebSocket Server**: Real-time communication layer
-- **Location Event Bus**: Kafka topic for location updates
+- **RealTimeTrackingService**: New service extending existing tracking capabilities
+- **WebSocket Integration**: Real-time communication layer
+- **Location Event Stream**: Integration with existing event system
 
 ### Updated Architecture Diagram
 ```
-[Mobile App] → [API Gateway] → [Booking Service] ←→ [NEW: Tracking Service]
-                                        ↓                      ↓
-                                   [Database]         [WebSocket Server]
+[Mobile/Web App] → [API Gateway] → [Tracking Service] ←→ [NEW: RealTime Tracking]
+                                        ↓                              ↓
+                                   [Database]                  [WebSocket Server]
                                                               ↓
                                                       [Location Event Bus]
 ```
@@ -242,13 +252,16 @@ CREATE TABLE bus_locations (
 ## 4. Integration Points
 
 ### Internal Integrations
-- **Booking Service ↔ Tracking Service**: New integration
-- **Tracking Service → Notification Service**: Send tracking alerts
-- **Tracking Service ↔ Database**: Store location data
+- **Tracking Service ↔ RealTimeTrackingService**: Extend existing tracking with real-time
+- **Search Service ↔ Tracking Service**: Integrate tracking availability in search results
+- **Booking Service ↔ RealTimeTrackingService**: Core booking operations integration
+- **Booking Details ↔ Tracking Service**: Show tracking status in booking details
 
 ### External Integrations
-- **Google Maps API**: For map display and geocoding
-- **GPS Hardware/API**: Receive location from buses (if applicable)
+- **Maps SDK**: For map display and geocoding
+- **GPS Systems**: Integration with location hardware/providers
+- **WebSocket Infrastructure**: Real-time communication setup
+- **Push Notification Service**: For tracking alerts
 
 ## 5. Testing Requirements
 
@@ -371,12 +384,15 @@ CREATE TABLE bus_locations (
 
 ## Important Guidelines:
 
-1. **Always search the codebase first** - Don't assume file names
-2. **Provide specific line numbers** - Based on actual code reading
-3. **Identify exact changes** - Not "modify file" but "add method X at line Y"
-4. **Consider dependencies** - What else breaks when you change something?
-5. **Think about backward compatibility** - Will this break existing features?
-6. **Estimate realistically** - Use Fibonacci scale (1,2,3,5,8,13,21)
+1. **Always search the codebase first** - Don't assume file names or structures
+2. **Follow your team's architecture patterns** - Use existing patterns and conventions
+3. **Provide specific line numbers** - Based on actual code reading
+4. **Identify exact changes** - Not "modify file" but "add method X at line Y in class Z"
+5. **Consider multi-country support** - Features should work across different markets
+6. **Check existing implementations** - Extend rather than replace existing functionality
+7. **Consider backward compatibility** - Will this break existing features?
+8. **Estimate realistically** - Use Fibonacci scale (1,2,3,5,8,13,21)
+9. **Account for feature flags** - New features often use feature flags for gradual rollout
 
 ## Output must be:
 - Specific (actual file paths)
