@@ -4,27 +4,26 @@ Analyzes actual codebase files to identify specific impacted areas with file pat
 """
 
 from google.adk.agents.llm_agent import Agent
-from google.adk.tools import Tool
+from google.adk.tools import FunctionTool
 import sys
 import os
 
 # Add tools directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from tools.github_tool import search_codebase, read_code_file
+from tools.github_tool import search_codebase as _search_codebase, read_code_file as _read_code_file
 
-# Create tools
-search_tool = Tool(
-    name="search_in_codebase",
-    function=search_codebase,
-    description="Search for a term in the codebase to find relevant files"
-)
+# Create wrapper functions for tools
+def search_in_codebase(repo_name: str, search_term: str) -> str:
+    """Search for a term in the codebase to find relevant files."""
+    return _search_codebase(repo_name, search_term)
 
-read_tool = Tool(
-    name="read_code_file",
-    function=read_code_file,
-    description="Read a specific file to analyze its implementation"
-)
+def read_code_file(repo_name: str, file_path: str) -> str:
+    """Read a specific file to analyze its implementation."""
+    return _read_code_file(repo_name, file_path)
+
+search_tool = FunctionTool(search_in_codebase)
+read_tool = FunctionTool(read_code_file)
 
 code_impact_agent = Agent(
     model='gemini-2.0-flash-exp',
