@@ -1,0 +1,159 @@
+{
+  "company": "redBus",
+  "domain": "Online Bus Ticketing & Transportation",
+  "mission": "Make bus travel simple, seamless, and accessible for everyone",
+
+  "product_principles": [
+    "Mobile-first design - 80% users on mobile devices",
+    "Sub-3-second load times for critical flows",
+    "Offline capability for booking confirmation & tickets",
+    "Frictionless payment experience",
+    "Trust & safety in every interaction",
+    "Localization for Tier 2/3 cities",
+    "Accessibility for all user groups"
+  ],
+
+  "user_demographics": {
+    "primary_market": "India (Tier 2/3 cities)",
+    "secondary_markets": ["Southeast Asia", "Latin America"],
+    "age_groups": {
+      "18-25": "35%",
+      "26-35": "40%",
+      "36-50": "20%",
+      "50+": "5%"
+    },
+    "device_profile": {
+      "android": "85%",
+      "ios": "15%",
+      "avg_ram": "3-4GB",
+      "network": "Primarily 4G, intermittent 3G"
+    },
+    "languages": ["English", "Hindi", "Tamil", "Telugu", "Kannada", "Bengali", "Marathi"]
+  },
+
+  "tech_stack": {
+    "frontend": {
+      "mobile": "React Native",
+      "web": "React.js + Next.js",
+      "styling": "Styled Components"
+    },
+    "backend": {
+      "primary": "Java Spring Boot",
+      "microservices": "Node.js (for specific services)",
+      "api_gateway": "Kong"
+    },
+    "database": {
+      "primary": "PostgreSQL",
+      "cache": "Redis",
+      "search": "Elasticsearch",
+      "analytics": "ClickHouse"
+    },
+    "infrastructure": {
+      "cloud": "AWS",
+      "cdn": "CloudFront",
+      "monitoring": "Datadog + Grafana"
+    },
+    "message_queue": "Kafka",
+    "analytics": "Google Analytics 4, Mixpanel, Amplitude"
+  },
+
+  "design_system": {
+    "name": "redBus Design System (RDS)",
+    "colors": {
+      "primary": "#D84E55 (redBus Red)",
+      "secondary": "#3E3E3E (Dark Grey)",
+      "success": "#4CAF50",
+      "warning": "#FFC107",
+      "error": "#F44336",
+      "background": "#F5F5F5"
+    },
+    "typography": {
+      "primary_font": "Montserrat",
+      "secondary_font": "Open Sans"
+    },
+    "spacing": "8px base unit",
+    "border_radius": "8px standard, 16px for cards",
+    "principles": [
+      "Consistent spacing and alignment",
+      "Clear visual hierarchy",
+      "Accessible color contrast (WCAG AA)",
+      "Touch targets minimum 44x44px",
+      "Loading states for all async operations"
+    ]
+  },
+
+  "common_features": {
+    "core": [
+      "Bus search & filtering",
+      "Seat selection",
+      "Payment gateway integration",
+      "Booking management",
+      "User authentication",
+      "Push notifications",
+      "Ratings & reviews"
+    ],
+    "advanced": [
+      "Real-time seat availability",
+      "Dynamic pricing",
+      "Cancellation & refunds",
+      "Loyalty program",
+      "Travel insurance",
+      "Multi-modal booking (bus + train)",
+      "Live tracking"
+    ]
+  },
+
+  "architecture_patterns": {
+    "api_design": "RESTful APIs with GraphQL for mobile",
+    "caching_strategy": "Redis for session data, CDN for static assets",
+    "authentication": "JWT tokens with refresh mechanism",
+    "rate_limiting": "API rate limits per user tier",
+    "error_handling": "Standardized error codes and messages",
+    "versioning": "API versioning (v1, v2)",
+    "testing": "Unit tests (JUnit), Integration tests (TestNG), E2E (Cypress)"
+  },
+
+  "performance_benchmarks": {
+    "page_load": "< 3 seconds (p95)",
+    "api_response": "< 500ms (p95)",
+    "search_results": "< 1 second",
+    "payment_flow": "< 5 seconds end-to-end"
+  },
+
+  "compliance_requirements": {
+    "data_privacy": ["GDPR", "Indian IT Act"],
+    "payment_security": "PCI DSS compliant",
+    "accessibility": "WCAG 2.1 Level AA"
+  },
+
+  "agile_practices": {
+    "sprint_duration": "2 weeks",
+    "story_point_scale": "Fibonacci (1, 2, 3, 5, 8, 13, 21)",
+    "story_point_guidelines": {
+      "1": "Trivial change, < 2 hours",
+      "2": "Minor change, < 4 hours",
+      "3": "Small feature, < 1 day",
+      "5": "Medium feature, 1-2 days",
+      "8": "Large feature, 3-5 days",
+      "13": "Very large feature, 1 week",
+      "21": "Epic-level, needs breakdown"
+    },
+    "definition_of_done": [
+      "Code reviewed and approved",
+      "Unit tests written and passing",
+      "Integration tests passing",
+      "Documentation updated",
+      "QA tested and approved",
+      "Analytics events implemented",
+      "Performance benchmarks met"
+    ]
+  },
+
+  "common_integrations": {
+    "payment_gateways": ["Razorpay", "PayU", "Paytm", "GooglePay", "PhonePe"],
+    "sms_providers": ["Twilio", "MSG91"],
+    "email_service": "SendGrid",
+    "push_notifications": "Firebase Cloud Messaging",
+    "analytics": ["Google Analytics", "Mixpanel", "Amplitude", "CleverTap"]
+  }
+}
